@@ -6,7 +6,7 @@
 
 **Architecture:** FastAPI(Python) 백엔드 + Next.js 프론트엔드 + PostgreSQL DB. 퀀트 시그널 엔진이 후보를 선별하고 LLM이 최종 판단. 기능 단위 수직 완성(풀스택 동시 개발).
 
-**Tech Stack:** FastAPI, PostgreSQL, SQLAlchemy, Alembic, Next.js 15, TypeScript, TailwindCSS, pandas, numpy, anthropic SDK, praw, pytrends, newsapi-python
+**Tech Stack:** FastAPI, PostgreSQL, SQLAlchemy, Alembic, Next.js 15, TypeScript, TailwindCSS, pandas, numpy, anthropic SDK, praw, pytrends, newsapi-python, Recharts (차트), Framer Motion (애니메이션), Lucide React (아이콘), cmdk (커맨드 팔레트)
 
 ---
 
@@ -2282,7 +2282,941 @@ uvicorn app.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 
 # 4. 접속
-# http://localhost:3000 — 홈페이지
-# http://localhost:3000/admin — Admin 대시보드 (7탭)
-# http://localhost:8000/docs — FastAPI Swagger
+# http://localhost:3000        — 홈페이지
+# http://localhost:3000/overview — 한눈에 보기 (펀드 상황 + PM 성과 + 리스크)
+# http://localhost:3000/admin  — Admin 대시보드 (7탭)
+# http://localhost:8000/docs   — FastAPI Swagger
+```
+
+---
+
+## Phase 7 — UI/UX 업그레이드
+
+### Task 14: 디자인 시스템 & 공통 컴포넌트
+
+**Files:**
+- Create: `frontend/src/components/ui/SkeletonCard.tsx`
+- Create: `frontend/src/components/ui/FlashNumber.tsx`
+- Create: `frontend/src/components/ui/Toast.tsx`
+- Create: `frontend/src/components/ui/RadialGauge.tsx`
+- Create: `frontend/src/components/ui/SlideOver.tsx`
+- Create: `frontend/src/components/ui/CommandPalette.tsx`
+- Create: `frontend/src/components/layout/Sidebar.tsx`
+- Modify: `frontend/src/app/globals.css`
+
+**Step 1: 패키지 설치**
+
+```bash
+cd frontend
+npm install recharts framer-motion lucide-react cmdk
+npm install -D @types/recharts
+```
+
+**Step 2: 글로벌 CSS — 디자인 토큰 + 폰트**
+
+```css
+/* frontend/src/app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --bg:      #0d1117;
+  --bg2:     #161b22;
+  --bg3:     #1c2128;
+  --border:  #30363d;
+  --text:    #e6edf3;
+  --muted:   #8b949e;
+  --green:   #00d4aa;
+  --red:     #ff6b6b;
+  --blue:    #3b82f6;
+  --yellow:  #f0b429;
+  --purple:  #a78bfa;
+  --cyan:    #22d3ee;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* 글래스모피즘 카드 */
+.glass-card {
+  background: rgba(22, 27, 34, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(48, 54, 61, 0.8);
+  border-radius: 12px;
+}
+
+/* 숫자 flash 애니메이션 */
+@keyframes flash-green {
+  0%   { background: transparent; }
+  30%  { background: rgba(0, 212, 170, 0.2); }
+  100% { background: transparent; }
+}
+@keyframes flash-red {
+  0%   { background: transparent; }
+  30%  { background: rgba(255, 107, 107, 0.2); }
+  100% { background: transparent; }
+}
+.flash-up   { animation: flash-green 0.8s ease-out; }
+.flash-down { animation: flash-red   0.8s ease-out; }
+
+/* 스켈레톤 shimmer */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+/* Live 인디케이터 */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-live 1.5s ease-in-out infinite;
+}
+```
+
+**Step 3: FlashNumber 컴포넌트 (숫자 변경 시 flash)**
+
+```typescript
+// frontend/src/components/ui/FlashNumber.tsx
+"use client";
+import { useEffect, useRef, useState } from "react";
+
+interface Props {
+  value: number;
+  format?: (v: number) => string;
+  className?: string;
+}
+
+export function FlashNumber({ value, format = (v) => v.toString(), className = "" }: Props) {
+  const prevRef = useRef(value);
+  const [flashClass, setFlashClass] = useState("");
+
+  useEffect(() => {
+    if (value === prevRef.current) return;
+    const cls = value > prevRef.current ? "flash-up" : "flash-down";
+    setFlashClass(cls);
+    prevRef.current = value;
+    const t = setTimeout(() => setFlashClass(""), 800);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  return (
+    <span className={`${className} ${flashClass} rounded px-0.5 transition-colors`}>
+      {format(value)}
+    </span>
+  );
+}
+```
+
+**Step 4: SkeletonCard 컴포넌트**
+
+```typescript
+// frontend/src/components/ui/SkeletonCard.tsx
+export function SkeletonCard({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="glass-card p-5 space-y-3">
+      <div className="skeleton h-4 w-1/3" />
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="skeleton h-3" style={{ width: `${70 + Math.random() * 30}%` }} />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonTable({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
+  return (
+    <div className="glass-card p-5">
+      <div className="skeleton h-4 w-1/4 mb-4" />
+      <div className="space-y-2">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex gap-4">
+            {Array.from({ length: cols }).map((_, j) => (
+              <div key={j} className="skeleton h-3 flex-1" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+**Step 5: RadialGauge 컴포넌트 (반원형 게이지)**
+
+```typescript
+// frontend/src/components/ui/RadialGauge.tsx
+interface Props {
+  value: number | null;
+  max: number;
+  label: string;
+  unit?: string;
+  warnAt: number;
+  dangerAt: number;
+  size?: number;
+}
+
+export function RadialGauge({ value, max, label, unit = "%", warnAt, dangerAt, size = 120 }: Props) {
+  const radius = 45;
+  const circumference = Math.PI * radius; // 반원
+  const pct = value != null ? Math.min(1, value / max) : 0;
+  const offset = circumference * (1 - pct);
+
+  const color =
+    value == null ? "#30363d" :
+    value >= dangerAt ? "#ff6b6b" :
+    value >= warnAt   ? "#f0b429" : "#00d4aa";
+
+  return (
+    <div className="glass-card p-5 flex flex-col items-center">
+      <svg width={size} height={size / 2 + 20} viewBox="0 0 100 60">
+        {/* 배경 호 */}
+        <path
+          d="M 5 55 A 45 45 0 0 1 95 55"
+          fill="none" stroke="#1c2128" strokeWidth="8" strokeLinecap="round"
+        />
+        {/* 값 호 */}
+        <path
+          d="M 5 55 A 45 45 0 0 1 95 55"
+          fill="none"
+          stroke={color}
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.3s ease" }}
+        />
+        {/* 값 텍스트 */}
+        <text x="50" y="52" textAnchor="middle" fill={color}
+              fontSize="14" fontFamily="JetBrains Mono" fontWeight="700">
+          {value != null ? `${value.toFixed(1)}${unit}` : "—"}
+        </text>
+      </svg>
+      <p className="text-xs text-[#8b949e] mt-1 tracking-widest">{label}</p>
+    </div>
+  );
+}
+```
+
+**Step 6: SlideOver 컴포넌트 (PM 상세 패널)**
+
+```typescript
+// frontend/src/components/ui/SlideOver.tsx
+"use client";
+import { useEffect } from "react";
+import { X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+export function SlideOver({ open, onClose, title, children }: Props) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* 오버레이 */}
+          <motion.div
+            className="fixed inset-0 bg-black/60 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          {/* 패널 */}
+          <motion.div
+            className="fixed right-0 top-0 h-full w-full max-w-xl bg-[#161b22] border-l border-[#30363d] z-50 overflow-y-auto"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-[#30363d]">
+              <h2 className="text-lg font-bold">{title}</h2>
+              <button onClick={onClose} className="text-[#8b949e] hover:text-white transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">{children}</div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+```
+
+**Step 7: 사이드바 레이아웃**
+
+```typescript
+// frontend/src/components/layout/Sidebar.tsx
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard, Eye, Bot, Briefcase,
+  Shield, BarChart2, Settings, ChevronLeft, TrendingUp
+} from "lucide-react";
+
+const NAV_ITEMS = [
+  { href: "/",         icon: TrendingUp,      label: "Home" },
+  { href: "/overview", icon: Eye,             label: "Overview" },  // 한눈에 보기
+  { href: "/admin",    icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/pms",      icon: Bot,             label: "AI PMs" },
+  { href: "/portfolio",icon: Briefcase,       label: "Portfolio" },
+  { href: "/risk",     icon: Shield,          label: "Risk" },
+  { href: "/analytics",icon: BarChart2,       label: "Analytics" },
+  { href: "/backtest", icon: BarChart2,       label: "Backtest" },
+  { href: "/admin/system", icon: Settings,   label: "System" },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <aside className={`fixed left-0 top-0 h-full bg-[#161b22] border-r border-[#30363d] z-30
+                       flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-56"}`}>
+      {/* 로고 */}
+      <div className="flex items-center gap-3 p-4 border-b border-[#30363d]">
+        <span className="text-2xl">🏦</span>
+        {!collapsed && <span className="font-bold text-cyan-400 text-sm">AI Hedge Fund</span>}
+      </div>
+
+      {/* 네비게이션 */}
+      <nav className="flex-1 py-4 space-y-1 px-2">
+        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href;
+          return (
+            <Link key={href} href={href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm
+                          ${active
+                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                            : "text-[#8b949e] hover:text-white hover:bg-[#1c2128]"}`}>
+              <Icon size={18} className="shrink-0" />
+              {!collapsed && <span>{label}</span>}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* 접기 버튼 */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex items-center justify-center p-4 border-t border-[#30363d]
+                   text-[#8b949e] hover:text-white transition">
+        <ChevronLeft size={18} className={`transition-transform ${collapsed ? "rotate-180" : ""}`} />
+      </button>
+    </aside>
+  );
+}
+```
+
+**Step 8: 커맨드 팔레트 (⌘K)**
+
+```typescript
+// frontend/src/components/ui/CommandPalette.tsx
+"use client";
+import { useEffect, useState } from "react";
+import { Command } from "cmdk";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+
+const COMMANDS = [
+  { label: "Overview — 한눈에 보기", href: "/overview", icon: "👁" },
+  { label: "Admin Dashboard", href: "/admin", icon: "📊" },
+  { label: "AI Portfolio Managers", href: "/pms", icon: "🤖" },
+  { label: "Portfolio", href: "/portfolio", icon: "💼" },
+  { label: "Risk Monitor", href: "/risk", icon: "🛡️" },
+  { label: "Analytics", href: "/analytics", icon: "📈" },
+  { label: "Backtest", href: "/backtest", icon: "🔬" },
+  { label: "System Status", href: "/admin/system", icon: "⚙️" },
+];
+
+export function CommandPalette() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            className="fixed inset-0 bg-black/60 z-50"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setOpen(false)}
+          />
+          <motion.div
+            className="fixed top-1/4 left-1/2 -translate-x-1/2 w-full max-w-lg z-50"
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            transition={{ duration: 0.15 }}
+          >
+            <Command className="glass-card overflow-hidden shadow-2xl"
+                     style={{ background: "#161b22", border: "1px solid #30363d" }}>
+              <Command.Input
+                placeholder="페이지 이동, 종목 검색..."
+                className="w-full px-4 py-4 bg-transparent text-white placeholder-[#8b949e]
+                           border-b border-[#30363d] outline-none text-sm"
+              />
+              <Command.List className="max-h-64 overflow-y-auto p-2">
+                <Command.Empty className="py-8 text-center text-[#8b949e] text-sm">
+                  결과 없음
+                </Command.Empty>
+                {COMMANDS.map(({ label, href, icon }) => (
+                  <Command.Item
+                    key={href}
+                    value={label}
+                    onSelect={() => { router.push(href); setOpen(false); }}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer
+                               text-sm text-[#e6edf3] aria-selected:bg-[#1c2128] transition"
+                  >
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </Command.Item>
+                ))}
+              </Command.List>
+            </Command>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+```
+
+**Step 9: 커밋**
+
+```bash
+cd frontend && npm run build  # 빌드 에러 확인
+git add frontend/src/components/ui/ frontend/src/components/layout/ frontend/src/app/globals.css
+git commit -m "feat: 디자인 시스템 - FlashNumber, SkeletonCard, RadialGauge, SlideOver, Sidebar, CommandPalette"
+```
+
+---
+
+### Task 15: 한눈에 보기 (Overview) 페이지
+
+> 펀드 전체 상황 + PM 성과 + 리스크를 **한 화면**에서 색/모양으로 즉시 파악
+
+**Files:**
+- Create: `frontend/src/app/overview/page.tsx`
+- Create: `frontend/src/app/overview/components/FundHealthBadge.tsx`
+- Create: `frontend/src/app/overview/components/PMHeatmap.tsx`
+- Create: `frontend/src/app/overview/components/RiskRadar.tsx`
+- Create: `frontend/src/app/overview/components/NAVSparkline.tsx`
+- Create: `frontend/src/app/overview/components/AlertBanner.tsx`
+
+**레이아웃 구조:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  🟢 FUND HEALTH: GOOD   NAV: $1.1M  +2.3% today    │  ← AlertBanner (위험 시 빨강)
+├────────────┬────────────────────┬───────────────────┤
+│            │                    │                   │
+│  FUND      │   NAV SPARKLINE    │  RISK RADAR       │
+│  HEALTH    │   (7일 수익 곡선)   │  (5각형 레이더)   │
+│  BADGE     │                    │                   │
+├────────────┴────────────────────┴───────────────────┤
+│                  PM HEATMAP                          │
+│  🌍+2.1% 🏛️+1.8% 🔬-0.3% 🕵️+4.2% 💀+0.9%         │
+│  ₿+8.1%  📊+1.2% 🌏-1.1% ⚡+3.3% 🛡️+0.4% 📱+2.7%  │
+│  (수익률 기반 색상 — 진할수록 강함)                  │
+└─────────────────────────────────────────────────────┘
+```
+
+**Step 1: FundHealthBadge 컴포넌트**
+
+```typescript
+// frontend/src/app/overview/components/FundHealthBadge.tsx
+import { TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react";
+
+type HealthStatus = "EXCELLENT" | "GOOD" | "CAUTION" | "DANGER";
+
+function getHealth(itdReturn: number, mdd: number, sharpe: number): HealthStatus {
+  if (mdd < -0.15 || itdReturn < -0.10) return "DANGER";
+  if (mdd < -0.08 || itdReturn < -0.03) return "CAUTION";
+  if (itdReturn > 0.05 && sharpe > 1.0)  return "EXCELLENT";
+  return "GOOD";
+}
+
+const HEALTH_CONFIG = {
+  EXCELLENT: { color: "#00d4aa", bg: "rgba(0,212,170,0.1)", border: "rgba(0,212,170,0.3)", icon: TrendingUp,     label: "EXCELLENT" },
+  GOOD:      { color: "#22d3ee", bg: "rgba(34,211,238,0.1)",  border: "rgba(34,211,238,0.3)", icon: TrendingUp,     label: "GOOD" },
+  CAUTION:   { color: "#f0b429", bg: "rgba(240,180,41,0.1)",  border: "rgba(240,180,41,0.3)", icon: Minus,          label: "CAUTION" },
+  DANGER:    { color: "#ff6b6b", bg: "rgba(255,107,107,0.1)", border: "rgba(255,107,107,0.3)", icon: AlertTriangle, label: "DANGER" },
+};
+
+interface Props {
+  itdReturn: number;
+  mdd: number;
+  sharpe: number;
+}
+
+export function FundHealthBadge({ itdReturn, mdd, sharpe }: Props) {
+  const status = getHealth(itdReturn, mdd, sharpe);
+  const { color, bg, border, icon: Icon, label } = HEALTH_CONFIG[status];
+
+  return (
+    <div className="glass-card p-6 flex flex-col items-center justify-center gap-3"
+         style={{ background: bg, borderColor: border }}>
+      <Icon size={40} color={color} />
+      <div className="text-center">
+        <p className="text-xs text-[#8b949e] tracking-widest mb-1">FUND HEALTH</p>
+        <p className="text-2xl font-bold" style={{ color }}>{label}</p>
+      </div>
+      <div className="text-xs text-[#8b949e] space-y-1 w-full">
+        <div className="flex justify-between">
+          <span>ITD Return</span>
+          <span style={{ color }}>{itdReturn >= 0 ? "+" : ""}{(itdReturn * 100).toFixed(2)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Max Drawdown</span>
+          <span style={{ color: mdd < -0.08 ? "#ff6b6b" : "#8b949e" }}>
+            {(mdd * 100).toFixed(1)}%
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span>Sharpe</span>
+          <span style={{ color: sharpe > 1.5 ? "#00d4aa" : "#8b949e" }}>
+            {sharpe.toFixed(2)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**Step 2: PMHeatmap 컴포넌트 (PM 성과 히트맵)**
+
+```typescript
+// frontend/src/app/overview/components/PMHeatmap.tsx
+import { PMSummary } from "@/lib/api";
+
+function returnToColor(ret: number): string {
+  if (ret >  5) return "rgba(0,212,170,0.9)";
+  if (ret >  2) return "rgba(0,212,170,0.6)";
+  if (ret >  0) return "rgba(0,212,170,0.3)";
+  if (ret > -2) return "rgba(255,107,107,0.3)";
+  if (ret > -5) return "rgba(255,107,107,0.6)";
+  return "rgba(255,107,107,0.9)";
+}
+
+function returnToTextColor(ret: number): string {
+  return ret >= 0 ? "#00d4aa" : "#ff6b6b";
+}
+
+export function PMHeatmap({ pms }: { pms: PMSummary[] }) {
+  return (
+    <div className="glass-card p-5">
+      <p className="text-xs text-[#8b949e] tracking-widest mb-4">PM PERFORMANCE HEATMAP</p>
+      <div className="grid grid-cols-4 lg:grid-cols-6 gap-2">
+        {pms.map((pm) => (
+          <div
+            key={pm.id}
+            className="rounded-xl p-3 flex flex-col items-center gap-1 transition-transform hover:scale-105 cursor-pointer"
+            style={{ background: returnToColor(pm.itd_return) }}
+          >
+            <span className="text-2xl">{pm.emoji}</span>
+            <span className="text-xs font-medium text-white truncate w-full text-center">
+              {pm.name}
+            </span>
+            <span className="text-sm font-mono font-bold"
+                  style={{ color: returnToTextColor(pm.itd_return) }}>
+              {pm.itd_return >= 0 ? "+" : ""}{pm.itd_return.toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </div>
+      {/* 범례 */}
+      <div className="flex items-center gap-2 mt-4 justify-center">
+        {[
+          { color: "rgba(255,107,107,0.9)", label: "< -5%" },
+          { color: "rgba(255,107,107,0.3)", label: "0%" },
+          { color: "rgba(0,212,170,0.3)",   label: "+2%" },
+          { color: "rgba(0,212,170,0.9)",   label: "> +5%" },
+        ].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1">
+            <div className="w-4 h-4 rounded" style={{ background: color }} />
+            <span className="text-xs text-[#8b949e]">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+**Step 3: NAVSparkline 컴포넌트 (수익률 곡선)**
+
+```typescript
+// frontend/src/app/overview/components/NAVSparkline.tsx
+"use client";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer, Area, AreaChart } from "recharts";
+
+interface DataPoint { date: string; nav: number; return_pct: number; }
+
+export function NAVSparkline({ data }: { data: DataPoint[] }) {
+  const isPositive = data.length > 1 && data[data.length - 1].return_pct >= 0;
+  const color = isPositive ? "#00d4aa" : "#ff6b6b";
+
+  return (
+    <div className="glass-card p-5">
+      <p className="text-xs text-[#8b949e] tracking-widest mb-4">NAV HISTORY (7D)</p>
+      {data.length < 2 ? (
+        <div className="h-32 flex items-center justify-center text-[#8b949e] text-sm">
+          데이터 수집 중...
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={120}>
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="navGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"   stopColor={color} stopOpacity={0.3} />
+                <stop offset="95%"  stopColor={color} stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fill: "#8b949e", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis hide domain={["auto", "auto"]} />
+            <Tooltip
+              contentStyle={{ background: "#1c2128", border: "1px solid #30363d", borderRadius: 8 }}
+              labelStyle={{ color: "#8b949e", fontSize: 11 }}
+              formatter={(v: number) => [`$${v.toLocaleString()}`, "NAV"]}
+            />
+            <ReferenceLine y={data[0]?.nav} stroke="#30363d" strokeDasharray="3 3" />
+            <Area type="monotone" dataKey="nav" stroke={color} strokeWidth={2}
+                  fill="url(#navGradient)" dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+```
+
+**Step 4: RiskRadar 컴포넌트 (5각형 레이더)**
+
+```typescript
+// frontend/src/app/overview/components/RiskRadar.tsx
+"use client";
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
+
+interface Props {
+  grossExposure: number;  // 0-300%
+  netExposure: number;    // 0-100%
+  marginUtil: number;     // 0-100%
+  concentration: number;  // 0-100% (상위 종목 집중도)
+  volatility: number;     // 0-100% (연환산)
+}
+
+export function RiskRadar({ grossExposure, netExposure, marginUtil, concentration, volatility }: Props) {
+  const data = [
+    { subject: "Gross Exp",     value: Math.min(100, grossExposure / 3),  fullMark: 100 },
+    { subject: "Net Exp",       value: Math.min(100, netExposure),         fullMark: 100 },
+    { subject: "Margin",        value: Math.min(100, marginUtil),          fullMark: 100 },
+    { subject: "Concentration", value: Math.min(100, concentration),       fullMark: 100 },
+    { subject: "Volatility",    value: Math.min(100, volatility),          fullMark: 100 },
+  ];
+
+  const maxRisk = Math.max(...data.map(d => d.value));
+  const radarColor = maxRisk > 75 ? "#ff6b6b" : maxRisk > 50 ? "#f0b429" : "#00d4aa";
+
+  return (
+    <div className="glass-card p-5">
+      <p className="text-xs text-[#8b949e] tracking-widest mb-2">RISK RADAR</p>
+      <ResponsiveContainer width="100%" height={160}>
+        <RadarChart data={data}>
+          <PolarGrid stroke="#30363d" />
+          <PolarAngleAxis dataKey="subject" tick={{ fill: "#8b949e", fontSize: 10 }} />
+          <Radar dataKey="value" stroke={radarColor} fill={radarColor}
+                 fillOpacity={0.2} strokeWidth={2} />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+```
+
+**Step 5: AlertBanner 컴포넌트 (상단 경보)**
+
+```typescript
+// frontend/src/app/overview/components/AlertBanner.tsx
+import { AlertTriangle, CheckCircle, Info } from "lucide-react";
+
+export type AlertLevel = "ok" | "warn" | "danger";
+
+interface Alert { level: AlertLevel; message: string; }
+
+const LEVEL_CONFIG = {
+  ok:     { color: "#00d4aa", bg: "rgba(0,212,170,0.08)",   border: "rgba(0,212,170,0.2)",   Icon: CheckCircle },
+  warn:   { color: "#f0b429", bg: "rgba(240,180,41,0.08)",  border: "rgba(240,180,41,0.2)",  Icon: Info },
+  danger: { color: "#ff6b6b", bg: "rgba(255,107,107,0.08)", border: "rgba(255,107,107,0.2)", Icon: AlertTriangle },
+};
+
+export function AlertBanner({ alerts }: { alerts: Alert[] }) {
+  if (alerts.length === 0) return null;
+  const topLevel = alerts.find(a => a.level === "danger")?.level
+                ?? alerts.find(a => a.level === "warn")?.level
+                ?? "ok";
+  const { color, bg, border, Icon } = LEVEL_CONFIG[topLevel];
+
+  return (
+    <div className="rounded-xl px-4 py-3 flex items-center gap-3 mb-4"
+         style={{ background: bg, border: `1px solid ${border}` }}>
+      <Icon size={16} color={color} />
+      <div className="flex gap-4 flex-wrap">
+        {alerts.map((a, i) => (
+          <span key={i} className="text-sm" style={{ color: LEVEL_CONFIG[a.level].color }}>
+            {a.message}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+**Step 6: Overview 메인 페이지**
+
+```typescript
+// frontend/src/app/overview/page.tsx
+"use client";
+import { useEffect, useState } from "react";
+import { FundHealthBadge } from "./components/FundHealthBadge";
+import { PMHeatmap } from "./components/PMHeatmap";
+import { NAVSparkline } from "./components/NAVSparkline";
+import { RiskRadar } from "./components/RiskRadar";
+import { AlertBanner, AlertLevel } from "./components/AlertBanner";
+import { SkeletonCard } from "@/components/ui/SkeletonCard";
+import { FlashNumber } from "@/components/ui/FlashNumber";
+import { getFundStats, getPMs } from "@/lib/api";
+
+function buildAlerts(stats, riskData): Array<{ level: AlertLevel; message: string }> {
+  const alerts = [];
+  if (!stats) return alerts;
+  if (stats.itd_return < -10)      alerts.push({ level: "danger", message: `ITD ${stats.itd_return.toFixed(1)}% — MDD 임계치 초과` });
+  else if (stats.itd_return < -3)  alerts.push({ level: "warn",   message: `ITD ${stats.itd_return.toFixed(1)}% — 손실 주의` });
+  if (riskData?.vix > 30)          alerts.push({ level: "danger", message: `VIX ${riskData.vix} — 극단적 공포 구간` });
+  else if (riskData?.vix > 20)     alerts.push({ level: "warn",   message: `VIX ${riskData.vix} — 변동성 상승 중` });
+  if (alerts.length === 0)         alerts.push({ level: "ok",     message: "모든 지표 정상 범위" });
+  return alerts;
+}
+
+export default function OverviewPage() {
+  const [stats, setStats] = useState(null);
+  const [pms, setPMs] = useState([]);
+  const [risk, setRisk] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      getFundStats().then(setStats),
+      getPMs().then(setPMs),
+      fetch("/api/fund/risk/overview").then(r => r.json()).then(setRisk),
+    ]).finally(() => setLoading(false));
+
+    const interval = setInterval(() => {
+      getFundStats().then(setStats);
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const alerts = buildAlerts(stats, risk);
+  const fmtCurrency = (v: number) => `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+
+  return (
+    <div className="space-y-4">
+      {/* 경보 배너 */}
+      <AlertBanner alerts={alerts} />
+
+      {/* 핵심 수치 — sticky 상단 */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-px bg-[#30363d] rounded-xl overflow-hidden">
+        {[
+          { label: "FUND NAV",    value: stats?.nav ?? 0,          fmt: fmtCurrency, color: "text-cyan-400" },
+          { label: "TODAY",       value: stats?.today_return ?? 0,  fmt: fmtPct,      color: stats?.today_return >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]" },
+          { label: "ITD RETURN",  value: stats?.itd_return ?? 0,    fmt: fmtPct,      color: stats?.itd_return >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]" },
+          { label: "ACTIVE PMs",  value: stats?.active_pms ?? 0,    fmt: String,      color: "text-blue-400" },
+          { label: "POSITIONS",   value: stats?.total_positions ?? 0,fmt: String,     color: "text-yellow-400" },
+          { label: "LIVE",        value: null,                       fmt: () => "",    color: "" },
+        ].map(({ label, value, fmt, color }, i) => (
+          <div key={label} className="bg-[#0d1117] px-4 py-5 flex flex-col items-center">
+            {label === "LIVE" ? (
+              <>
+                <div className="live-dot mb-1" />
+                <span className="text-xs text-[#8b949e] tracking-widest">LIVE</span>
+              </>
+            ) : (
+              <>
+                <FlashNumber value={value} format={fmt}
+                             className={`text-2xl font-mono font-bold ${color}`} />
+                <span className="text-xs text-[#8b949e] tracking-widest mt-1">{label}</span>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 3열 메인 그리드 */}
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <SkeletonCard rows={5} />
+          <SkeletonCard rows={5} />
+          <SkeletonCard rows={5} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <FundHealthBadge
+            itdReturn={(stats?.itd_return ?? 0) / 100}
+            mdd={0}
+            sharpe={0}
+          />
+          <NAVSparkline data={[]} />
+          <RiskRadar
+            grossExposure={risk?.exposure?.gross_pct ?? 0}
+            netExposure={risk?.exposure?.net_pct ?? 0}
+            marginUtil={risk?.margin?.utilization_pct ?? 0}
+            concentration={0}
+            volatility={0}
+          />
+        </div>
+      )}
+
+      {/* PM 히트맵 */}
+      {loading ? <SkeletonCard rows={3} /> : <PMHeatmap pms={pms} />}
+    </div>
+  );
+}
+```
+
+**Step 7: 레이아웃에 Sidebar 통합**
+
+```typescript
+// frontend/src/app/layout.tsx (수정)
+import { Sidebar } from "@/components/layout/Sidebar";
+import { CommandPalette } from "@/components/ui/CommandPalette";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="ko">
+      <body>
+        <Sidebar />
+        <CommandPalette />
+        <main className="ml-56 p-6 min-h-screen bg-[#0d1117]">
+          {children}
+        </main>
+      </body>
+    </html>
+  );
+}
+```
+
+**Step 8: 테스트 + 커밋**
+
+```bash
+cd frontend && npm run build
+git add frontend/src/app/overview/ frontend/src/app/layout.tsx
+git commit -m "feat: Overview 한눈에 보기 - FundHealth + PMHeatmap + NAVSparkline + RiskRadar + AlertBanner"
+```
+
+---
+
+### Task 16: Admin 대시보드 UI 업그레이드 적용
+
+**기존 Admin 탭에 새 컴포넌트 교체:**
+
+| 교체 대상 | 원본 | 업그레이드 |
+|---|---|---|
+| Risk 게이지 | 단순 바 | `RadialGauge` 반원형 |
+| PM 카드 클릭 | 인라인 펼치기 | `SlideOver` 패널 |
+| 로딩 상태 | "Loading..." 텍스트 | `SkeletonCard` / `SkeletonTable` |
+| 수치 변경 | 즉시 교체 | `FlashNumber` flash 효과 |
+| Activity Feed | 텍스트 리스트 | 타임라인 UI |
+| Portfolio 히트맵 | 색상 박스 | 인터랙티브 + 툴팁 |
+
+**RiskTab에 RadialGauge 적용:**
+
+```typescript
+// RiskTab.tsx 수정
+import { RadialGauge } from "@/components/ui/RadialGauge";
+
+// 기존 RiskGauge 컴포넌트를 RadialGauge로 교체
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <RadialGauge label="GROSS EXPOSURE" value={risk?.exposure?.gross_pct ?? null}
+               max={300} warnAt={150} dangerAt={200} />
+  <RadialGauge label="NET EXPOSURE"   value={risk?.exposure?.net_pct ?? null}
+               max={100} warnAt={50}  dangerAt={80} />
+  <RadialGauge label="MARGIN UTIL"    value={risk?.margin?.utilization_pct ?? null}
+               max={100} warnAt={50}  dangerAt={75} />
+  <RadialGauge label="VIX"            value={risk?.vix ?? null}
+               max={60}  warnAt={20}  dangerAt={30} unit="" />
+</div>
+```
+
+**PMsTab에 SlideOver 적용:**
+
+```typescript
+// PMsTab.tsx 수정
+import { SlideOver } from "@/components/ui/SlideOver";
+import { useState } from "react";
+
+// PM 카드 클릭 → SlideOver 열기
+const [selectedPM, setSelectedPM] = useState(null);
+const [detail, setDetail] = useState(null);
+
+const openPM = async (pmId) => {
+  const d = await fetch(`/api/pm/${pmId}`).then(r => r.json());
+  setDetail(d);
+  setSelectedPM(pmId);
+};
+
+// SlideOver 안에 PM 상세 내용
+<SlideOver open={!!selectedPM} onClose={() => setSelectedPM(null)}
+           title={`${detail?.emoji} ${detail?.name}`}>
+  {/* 성과 카드, 포지션 테이블, 결정 타임라인, Worldview */}
+</SlideOver>
+```
+
+**Step: 커밋**
+
+```bash
+git add frontend/src/app/admin/
+git commit -m "feat: Admin UI 업그레이드 - RadialGauge, SlideOver PM 상세, SkeletonUI, FlashNumber"
 ```
