@@ -13,6 +13,7 @@ import {
   Settings,
   ChevronLeft,
   TrendingUp,
+  FlaskConical,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/overview", icon: Eye, label: "Overview" },
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/pms", icon: Bot, label: "AI PMs" },
+  { href: "/backtest", icon: FlaskConical, label: "Backtest" },
   { href: "/admin?tab=portfolio", icon: Briefcase, label: "Portfolio" },
   { href: "/admin?tab=risk", icon: Shield, label: "Risk" },
   { href: "/admin?tab=analytics", icon: BarChart2, label: "Analytics" },
@@ -42,9 +44,12 @@ export function Sidebar() {
         )}
       </div>
 
-      <nav className="flex-1 py-4 space-y-1 px-2">
+      <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href || (href !== "/" && pathname?.startsWith(href.split("?")[0]));
+          const basePath = href.split("?")[0];
+          const active =
+            pathname === href ||
+            (href !== "/" && !href.includes("?") && pathname?.startsWith(basePath));
           return (
             <Link
               key={href + label}

@@ -3,8 +3,8 @@ interface Props {
   max: number;
   label: string;
   unit?: string;
-  warnAt: number;
-  dangerAt: number;
+  warnAt?: number;
+  dangerAt?: number;
   size?: number;
 }
 
@@ -13,8 +13,8 @@ export function RadialGauge({
   max,
   label,
   unit = "%",
-  warnAt,
-  dangerAt,
+  warnAt = max * 0.6,
+  dangerAt = max * 0.85,
   size = 120,
 }: Props) {
   const radius = 45;

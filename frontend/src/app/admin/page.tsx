@@ -10,7 +10,7 @@ import { RiskTab } from "./components/RiskTab";
 import { AnalyticsTab } from "./components/AnalyticsTab";
 import { SystemTab } from "./components/SystemTab";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
