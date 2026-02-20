@@ -1693,6 +1693,579 @@ pytest --cov=app --cov-report=term-missing tests/
 # 목표: 80%+ 커버리지
 ```
 
+## Phase 6 — Admin 대시보드 (7탭 풀 구현)
+
+> threadsaver Admin을 완전 분석 후 클론 + 업그레이드. 원본은 바닐라 JS SPA, 우리는 Next.js로 구현.
+
+### Task 12: Admin API 엔드포인트 (25개+)
+
+**Files:**
+- Create: `backend/app/api/admin/dashboard.py`
+- Create: `backend/app/api/admin/strategic.py`
+- Create: `backend/app/api/admin/portfolio.py`
+- Create: `backend/app/api/admin/risk.py`
+- Create: `backend/app/api/admin/analytics.py`
+- Create: `backend/app/api/admin/system.py`
+
+**핵심 엔드포인트 목록:**
+
+```python
+# Dashboard 탭
+GET /api/fund/intelligence/brief      # Market Intelligence (LLM 시장 분석)
+GET /api/fund/activity-feed           # Activity Feed (거래/리서치/리스크/협상)
+
+# Strategic 탭
+GET /api/fund/strategic/overview      # 레짐, PM 전략 목표
+GET /api/fund/strategic/thesis-health # 테시스 건강도 (활성/플래그/무효)
+GET /api/fund/exposure/net            # 순 노출 + 충돌 감지
+GET /api/fund/strategic/rebalance-status # 리밸런싱 진행도
+
+# PMs 탭
+GET /api/fund/pm/dashboard            # PM 리더보드 (전략/전술 분리)
+GET /api/fund/pm/{id}/detail          # PM 상세 (포지션, 결정, 세계관)
+GET /api/fund/pm/comparison           # Provider/Personality 비교
+
+# Portfolio 탭
+GET /api/fund/positions/breakdown     # 포지션 히트맵 데이터
+GET /api/fund/trades                  # 거래 기록
+GET /api/fund/heatmap                 # 히트맵 (섹터별)
+GET /api/fund/exposure                # 섹터별 노출
+
+# Risk 탭
+GET /api/fund/risk/overview           # 4개 게이지 + 집중도
+GET /api/fund/risk/decisions          # 리스크 결정 기록
+GET /api/fund/risk/negotiations       # PM 협상 기록
+
+# Analytics 탭
+GET /api/fund/analytics/alpha         # 알파 리더보드 (+ 샤프/소르티노/MDD 추가)
+GET /api/fund/analytics/provider      # Provider별 비교
+GET /api/fund/analytics/conviction    # 신뢰도 정확도 버킷
+GET /api/fund/analytics/positions     # PM별 포지션 P&L
+GET /api/fund/analytics/tools         # 도구 효율성
+
+# System 탭
+GET /api/fund/system/overview         # 서비스 상태 + 신호 신선도
+GET /api/fund/order-pipeline/stats    # 오더 파이프라인
+GET /api/fund/soq/status              # Smart Order Queue
+GET /api/fund/executions/recent       # 최근 실행 기록
+```
+
+**우리만의 업그레이드 (원본 대비):**
+
+```python
+# Analytics 탭에 추가
+GET /api/fund/analytics/performance   # 샤프/소르티노/MDD/칼마 (원본 없음)
+GET /api/fund/analytics/backtest      # 백테스트 결과 (원본 없음)
+
+# System 탭에 추가
+GET /api/fund/social/freshness        # 소셜 시그널 신선도 (원본 없음)
+# (Reddit, Google Trends, NewsAPI 상태)
+```
+
+**Step 1: Intelligence Brief API**
+
+```python
+# app/api/admin/dashboard.py
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from app.db.base import get_db
+
+router = APIRouter(prefix="/api/fund", tags=["admin"])
+
+@router.get("/intelligence/brief")
+async def get_intelligence_brief(db: Session = Depends(get_db)):
+    # LLM이 생성한 최신 시장 분석 반환
+    # Phase 2에서 Market Intelligence 엔진 구현 후 연동
+    return {
+        "brief": {
+            "market_read": "Market Intelligence not yet available",
+            "quality_score": 0,
+            "timestamp": None,
+            "hot_tickers": [],
+            "events": []
+        }
+    }
+
+@router.get("/activity-feed")
+async def get_activity_feed(limit: int = 30, db: Session = Depends(get_db)):
+    from app.models.trade import Trade
+    trades = db.query(Trade).order_by(Trade.executed_at.desc()).limit(limit).all()
+    items = []
+    for t in trades:
+        items.append({
+            "emoji": "💼",
+            "type": "trade",
+            "summary": f"{t.pm_id} {t.action} {t.quantity} {t.symbol} @ ${t.price:.2f}",
+            "time": t.executed_at.isoformat() if t.executed_at else None,
+            "details": {
+                "pm_id": t.pm_id,
+                "symbol": t.symbol,
+                "action": t.action,
+                "quantity": t.quantity,
+                "price": t.price,
+                "conviction": t.conviction_score,
+                "reasoning": t.reasoning,
+            }
+        })
+    return {"items": items}
+```
+
+**Step 2: Risk Overview API**
+
+```python
+# app/api/admin/risk.py
+@router.get("/risk/overview")
+async def get_risk_overview(db: Session = Depends(get_db)):
+    from app.models.position import Position
+    from app.models.pm import PM
+    pms = db.query(PM).filter(PM.is_active == True).all()
+    positions = db.query(Position).all()
+    total_nav = sum(pm.current_capital for pm in pms)
+
+    long_exposure = sum(
+        p.quantity * p.avg_cost for p in positions if p.quantity > 0
+    )
+    short_exposure = sum(
+        abs(p.quantity) * p.avg_cost for p in positions if p.quantity < 0
+    )
+    gross_pct = ((long_exposure + short_exposure) / total_nav * 100) if total_nav > 0 else 0
+    net_pct = ((long_exposure - short_exposure) / total_nav * 100) if total_nav > 0 else 0
+
+    return {
+        "exposure": {"gross_pct": round(gross_pct, 1), "net_pct": round(net_pct, 1)},
+        "margin": {"utilization_pct": 0.0},
+        "vix": None,  # Phase 4에서 실시간 VIX 연동
+        "active_conditions": 0,
+        "concentration": {
+            "top_ticker": None,
+            "top_sector": None,
+        },
+        "decisions_24h": {"approval_rate": 100.0, "total": 0, "approved": 0, "rejected": 0}
+    }
+```
+
+**Step 3: Analytics Alpha API (업그레이드 버전)**
+
+```python
+# app/api/admin/analytics.py
+@router.get("/analytics/alpha")
+async def get_analytics_alpha(db: Session = Depends(get_db)):
+    from app.models.pm import PM
+    from app.models.nav_history import NAVHistory
+    from app.engines.performance import PerformanceEngine
+    pms = db.query(PM).filter(PM.is_active == True).all()
+    engine = PerformanceEngine()
+    leaderboard = []
+    for pm in pms:
+        itd_return = ((pm.current_capital - 100_000.0) / 100_000.0 * 100)
+        leaderboard.append({
+            "pm_id": pm.id,
+            "name": pm.name,
+            "emoji": pm.emoji,
+            "provider": pm.llm_provider,
+            "total_return_pct": round(itd_return, 2),
+            "spy_return_pct": 0.0,  # Phase 4에서 실시간 SPY 연동
+            "alpha_pct": round(itd_return, 2),
+            "rolling_5d_alpha": 0.0,
+            # 원본 없음 — 우리만의 업그레이드
+            "sharpe": 0.0,
+            "sortino": 0.0,
+            "mdd": 0.0,
+            "calmar": 0.0,
+            "data_days": 0,
+        })
+    leaderboard.sort(key=lambda x: x["alpha_pct"], reverse=True)
+    return {"leaderboard": leaderboard}
+```
+
+**Step 4: 테스트 작성**
+
+```python
+# tests/integration/test_admin_api.py
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+
+def test_intelligence_brief():
+    r = client.get("/api/fund/intelligence/brief")
+    assert r.status_code == 200
+    assert "brief" in r.json()
+
+def test_activity_feed():
+    r = client.get("/api/fund/activity-feed?limit=10")
+    assert r.status_code == 200
+    assert "items" in r.json()
+
+def test_risk_overview():
+    r = client.get("/api/fund/risk/overview")
+    assert r.status_code == 200
+    data = r.json()
+    assert "exposure" in data
+    assert "gross_pct" in data["exposure"]
+
+def test_analytics_alpha_has_upgrade_fields():
+    r = client.get("/api/fund/analytics/alpha")
+    assert r.status_code == 200
+    data = r.json()
+    if data["leaderboard"]:
+        pm = data["leaderboard"][0]
+        # 원본 없는 필드 확인
+        assert "sharpe" in pm
+        assert "sortino" in pm
+        assert "mdd" in pm
+```
+
+**Step 5: 커밋**
+
+```bash
+pytest tests/integration/test_admin_api.py -v
+git add backend/app/api/admin/
+git commit -m "feat: Admin 대시보드 API 25개+ 엔드포인트"
+```
+
+---
+
+### Task 13: Admin 대시보드 프론트엔드 (Next.js, 7탭)
+
+**Files:**
+- Create: `frontend/src/app/admin/page.tsx`
+- Create: `frontend/src/app/admin/components/DashboardTab.tsx`
+- Create: `frontend/src/app/admin/components/StrategicTab.tsx`
+- Create: `frontend/src/app/admin/components/PMsTab.tsx`
+- Create: `frontend/src/app/admin/components/PortfolioTab.tsx`
+- Create: `frontend/src/app/admin/components/RiskTab.tsx`
+- Create: `frontend/src/app/admin/components/AnalyticsTab.tsx`
+- Create: `frontend/src/app/admin/components/SystemTab.tsx`
+- Create: `frontend/src/app/admin/hooks/useAdminData.ts`
+
+**디자인 시스템 (원본 CSS 변수 그대로):**
+
+```css
+/* globals.css에 추가 */
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --green: #00d4aa;
+  --red: #ff6b6b;
+  --blue: #3b82f6;
+  --yellow: #f0b429;
+  --purple: #a78bfa;
+}
+```
+
+**Admin 메인 레이아웃:**
+
+```typescript
+// frontend/src/app/admin/page.tsx
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import { AdminVitals } from "./components/AdminVitals";
+import { DashboardTab } from "./components/DashboardTab";
+import { StrategicTab } from "./components/StrategicTab";
+import { PMsTab } from "./components/PMsTab";
+import { PortfolioTab } from "./components/PortfolioTab";
+import { RiskTab } from "./components/RiskTab";
+import { AnalyticsTab } from "./components/AnalyticsTab";
+import { SystemTab } from "./components/SystemTab";
+
+const TABS = [
+  { id: "dashboard", label: "📊 Dashboard" },
+  { id: "strategic", label: "🎯 Strategic" },
+  { id: "pms", label: "🤖 PMs" },
+  { id: "portfolio", label: "💼 Portfolio" },
+  { id: "risk", label: "🛡️ Risk" },
+  { id: "analytics", label: "📈 Analytics" },
+  { id: "system", label: "⚙️ System" },
+];
+
+export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [vitals, setVitals] = useState(null);
+
+  const refreshVitals = useCallback(async () => {
+    const r = await fetch("/api/fund/stats");
+    if (r.ok) setVitals(await r.json());
+  }, []);
+
+  useEffect(() => {
+    refreshVitals();
+    const interval = setInterval(refreshVitals, 30_000);
+    return () => clearInterval(interval);
+  }, [refreshVitals]);
+
+  return (
+    <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
+      <AdminVitals vitals={vitals} />
+      {/* 탭 네비게이션 */}
+      <nav className="flex border-b border-[#30363d] px-4">
+        {TABS.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+              activeTab === id
+                ? "border-cyan-400 text-white"
+                : "border-transparent text-[#8b949e] hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      {/* 탭 컨텐츠 */}
+      <main className="p-6">
+        {activeTab === "dashboard" && <DashboardTab />}
+        {activeTab === "strategic" && <StrategicTab />}
+        {activeTab === "pms" && <PMsTab />}
+        {activeTab === "portfolio" && <PortfolioTab />}
+        {activeTab === "risk" && <RiskTab />}
+        {activeTab === "analytics" && <AnalyticsTab />}
+        {activeTab === "system" && <SystemTab />}
+      </main>
+    </div>
+  );
+}
+```
+
+**Dashboard 탭 (Activity Feed + Market Intelligence):**
+
+```typescript
+// frontend/src/app/admin/components/DashboardTab.tsx
+"use client";
+import { useEffect, useState } from "react";
+
+const FEED_TYPE_COLORS = {
+  trade: "bg-blue-900 text-blue-300",
+  research: "bg-purple-900 text-purple-300",
+  risk_decision: "bg-red-900 text-red-300",
+  negotiation: "bg-yellow-900 text-yellow-300",
+};
+
+export function DashboardTab() {
+  const [intel, setIntel] = useState(null);
+  const [feed, setFeed] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/fund/intelligence/brief").then(r => r.json()).then(d => setIntel(d.brief));
+    fetch("/api/fund/activity-feed?limit=30").then(r => r.json()).then(d => setFeed(d.items || []));
+  }, []);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Market Intelligence */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🧠</span>
+          <h2 className="font-bold">Market Intelligence</h2>
+          {intel?.quality_score && (
+            <span className="ml-auto text-xs bg-[#1c2128] px-2 py-1 rounded text-[#8b949e]">
+              {intel.quality_score}/100
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-[#8b949e] leading-relaxed mb-4">
+          {intel?.market_read || "Loading..."}
+        </p>
+        {intel?.hot_tickers?.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {intel.hot_tickers.map(t => (
+              <span key={t} className="text-xs bg-cyan-900 text-cyan-300 px-2 py-1 rounded">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Activity Feed */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5">
+        <h2 className="font-bold mb-4">⚡ Activity Feed</h2>
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {feed.map((item, i) => (
+            <div key={i} className="flex items-start gap-3 py-2 border-b border-[#30363d] last:border-0">
+              <span>{item.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <span className={`text-xs px-1.5 py-0.5 rounded mr-2 ${FEED_TYPE_COLORS[item.type] || "bg-gray-800 text-gray-400"}`}>
+                  {item.type}
+                </span>
+                <span className="text-sm text-[#e6edf3]">{item.summary}</span>
+              </div>
+              <span className="text-xs text-[#8b949e] shrink-0">
+                {item.time ? new Date(item.time).toLocaleTimeString() : ""}
+              </span>
+            </div>
+          ))}
+          {feed.length === 0 && <p className="text-[#8b949e] text-sm">No activity yet</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**Risk 탭 (4개 게이지 + 결정/협상):**
+
+```typescript
+// frontend/src/app/admin/components/RiskTab.tsx
+"use client";
+import { useEffect, useState } from "react";
+
+function RiskGauge({ label, value, max, unit = "%", warnAt, dangerAt }) {
+  const pct = Math.min(100, (value / max) * 100);
+  const color = value >= dangerAt ? "#ff6b6b" : value >= warnAt ? "#f0b429" : "#00d4aa";
+  return (
+    <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5">
+      <p className="text-xs text-[#8b949e] mb-2">{label}</p>
+      <p className="text-3xl font-mono font-bold" style={{ color }}>
+        {value !== null ? `${value.toFixed(1)}${unit}` : "—"}
+      </p>
+      <div className="mt-3 h-1.5 bg-[#1c2128] rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+export function RiskTab() {
+  const [risk, setRisk] = useState(null);
+  const [decisions, setDecisions] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/fund/risk/overview").then(r => r.json()).then(setRisk);
+    fetch("/api/fund/risk/decisions?limit=20").then(r => r.json()).then(d => setDecisions(d.decisions || []));
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      {/* 4개 게이지 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <RiskGauge label="GROSS EXPOSURE" value={risk?.exposure?.gross_pct ?? null} max={300} warnAt={150} dangerAt={200} />
+        <RiskGauge label="NET EXPOSURE" value={risk?.exposure?.net_pct ?? null} max={100} warnAt={50} dangerAt={80} />
+        <RiskGauge label="MARGIN UTIL" value={risk?.margin?.utilization_pct ?? null} max={100} warnAt={50} dangerAt={75} />
+        <RiskGauge label="VIX" value={risk?.vix ?? null} max={60} warnAt={20} dangerAt={30} unit="" />
+      </div>
+
+      {/* 리스크 결정 테이블 */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5">
+        <h3 className="font-bold mb-4">Risk Decisions</h3>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[#8b949e] text-xs">
+              <th className="text-left pb-2">TIME</th>
+              <th className="text-left pb-2">PM</th>
+              <th className="text-left pb-2">TICKER</th>
+              <th className="text-left pb-2">OUTCOME</th>
+              <th className="text-left pb-2">REASONING</th>
+            </tr>
+          </thead>
+          <tbody>
+            {decisions.map((d, i) => (
+              <tr key={i} className="border-t border-[#30363d]">
+                <td className="py-2 text-[#8b949e]">{d.created_at ? new Date(d.created_at).toLocaleTimeString() : "—"}</td>
+                <td className="py-2">{d.pm_id}</td>
+                <td className="py-2 font-mono">{d.ticker}</td>
+                <td className="py-2">
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    d.outcome === "approved" ? "bg-green-900 text-green-300" :
+                    d.outcome === "rejected" ? "bg-red-900 text-red-300" :
+                    "bg-yellow-900 text-yellow-300"
+                  }`}>{d.outcome}</span>
+                </td>
+                <td className="py-2 text-[#8b949e] max-w-xs truncate">{d.reasoning}</td>
+              </tr>
+            ))}
+            {decisions.length === 0 && (
+              <tr><td colSpan={5} className="py-4 text-center text-[#8b949e]">No decisions yet</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+```
+
+**Analytics 탭 (업그레이드 — 샤프/소르티노/MDD 추가):**
+
+```typescript
+// frontend/src/app/admin/components/AnalyticsTab.tsx
+"use client";
+import { useEffect, useState } from "react";
+
+export function AnalyticsTab() {
+  const [alpha, setAlpha] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/fund/analytics/alpha").then(r => r.json()).then(d => setAlpha(d.leaderboard || []));
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-5">
+        <h3 className="font-bold mb-4">📊 Alpha Leaderboard</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[#8b949e] text-xs">
+                <th className="text-left pb-2">PM</th>
+                <th className="text-right pb-2">RETURN</th>
+                <th className="text-right pb-2">ALPHA</th>
+                {/* 원본 없음 — 우리 업그레이드 */}
+                <th className="text-right pb-2 text-cyan-600">SHARPE ✨</th>
+                <th className="text-right pb-2 text-cyan-600">SORTINO ✨</th>
+                <th className="text-right pb-2 text-cyan-600">MDD ✨</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alpha.map((pm, i) => (
+                <tr key={i} className="border-t border-[#30363d]">
+                  <td className="py-2">
+                    <span className="mr-2">{pm.emoji}</span>{pm.name}
+                    <span className="ml-2 text-xs text-[#8b949e]">{pm.provider}</span>
+                  </td>
+                  <td className={`py-2 text-right font-mono ${pm.total_return_pct >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]"}`}>
+                    {pm.total_return_pct >= 0 ? "+" : ""}{pm.total_return_pct.toFixed(2)}%
+                  </td>
+                  <td className={`py-2 text-right font-mono ${pm.alpha_pct >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]"}`}>
+                    {pm.alpha_pct >= 0 ? "+" : ""}{pm.alpha_pct.toFixed(2)}%
+                  </td>
+                  <td className="py-2 text-right font-mono text-[#8b949e]">
+                    {pm.sharpe ? pm.sharpe.toFixed(2) : "—"}
+                  </td>
+                  <td className="py-2 text-right font-mono text-[#8b949e]">
+                    {pm.sortino ? pm.sortino.toFixed(2) : "—"}
+                  </td>
+                  <td className={`py-2 text-right font-mono ${pm.mdd < 0 ? "text-[#ff6b6b]" : "text-[#8b949e]"}`}>
+                    {pm.mdd ? `${(pm.mdd * 100).toFixed(1)}%` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**Step: 테스트 + 커밋**
+
+```bash
+# 프론트 빌드 확인
+cd frontend && npm run build
+
+git add frontend/src/app/admin/ backend/app/api/admin/
+git commit -m "feat: Admin 대시보드 7탭 구현 (threadsaver 클론 + 샤프/소르티노/MDD 업그레이드)"
+```
+
+---
+
 ## 로컬 실행 가이드
 
 ```bash
@@ -1710,5 +2283,6 @@ cd frontend && npm install && npm run dev
 
 # 4. 접속
 # http://localhost:3000 — 홈페이지
+# http://localhost:3000/admin — Admin 대시보드 (7탭)
 # http://localhost:8000/docs — FastAPI Swagger
 ```
