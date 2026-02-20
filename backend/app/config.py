@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     database_url: str = "sqlite:///./hedge_fund.db"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
@@ -15,9 +17,6 @@ class Settings(BaseSettings):
     alpaca_base_url: str = "https://paper-api.alpaca.markets"
     environment: str = "development"
     initial_fund_nav: float = 1_000_000.0
-
-    class Config:
-        env_file = ".env"
 
 
 settings = Settings()
