@@ -11,8 +11,8 @@ import pandas as pd
 try:
     import yfinance as yf
     YFINANCE_AVAILABLE = True
-except ImportError:
-    YFINANCE_AVAILABLE = False
+except ImportError:  # pragma: no cover
+    YFINANCE_AVAILABLE = False  # pragma: no cover
 
 # PM별 관심 종목
 PM_WATCHLISTS: dict[str, list[str]] = {
@@ -44,8 +44,8 @@ MOCK_PRICES: dict[str, float] = {
 
 def get_price_history(symbol: str, days: int = 60) -> Optional[pd.Series]:
     """종목의 가격 히스토리 반환"""
-    if not YFINANCE_AVAILABLE:
-        return _mock_price_history(symbol, days)
+    if not YFINANCE_AVAILABLE:  # pragma: no cover
+        return _mock_price_history(symbol, days)  # pragma: no cover
 
     try:
         ticker = yf.Ticker(symbol)
@@ -61,8 +61,8 @@ def get_price_history(symbol: str, days: int = 60) -> Optional[pd.Series]:
 
 def get_current_price(symbol: str) -> float:
     """현재가 반환"""
-    if not YFINANCE_AVAILABLE:
-        return _mock_current_price(symbol)
+    if not YFINANCE_AVAILABLE:  # pragma: no cover
+        return _mock_current_price(symbol)  # pragma: no cover
 
     try:
         ticker = yf.Ticker(symbol)

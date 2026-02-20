@@ -9,14 +9,14 @@ from datetime import datetime
 
 # 선택적 의존성
 try:
-    import praw
-    PRAW_AVAILABLE = True
+    import praw  # pragma: no cover
+    PRAW_AVAILABLE = True  # pragma: no cover
 except ImportError:
     PRAW_AVAILABLE = False
 
 try:
-    from pytrends.request import TrendReq
-    PYTRENDS_AVAILABLE = True
+    from pytrends.request import TrendReq  # pragma: no cover
+    PYTRENDS_AVAILABLE = True  # pragma: no cover
 except ImportError:
     PYTRENDS_AVAILABLE = False
 

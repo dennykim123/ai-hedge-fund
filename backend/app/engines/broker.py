@@ -12,15 +12,15 @@ class BrokerAdapter(ABC):
     async def place_order(
         self, symbol: str, qty: float, side: str, order_type: str = "market"
     ) -> dict:
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def get_positions(self) -> list[dict]:
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def get_account(self) -> dict:
-        pass
+        pass  # pragma: no cover
 
 
 class AlpacaAdapter(BrokerAdapter):

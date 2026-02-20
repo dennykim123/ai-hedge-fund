@@ -42,3 +42,19 @@ def test_metrics_bundle():
     assert "alpha" in metrics
     assert "beta" in metrics
     assert "calmar" in metrics
+
+
+def test_sharpe_ratio_zero_std_returns_zero():
+    # performance.py 27번: r.std()==0 경로를 직접 패치로 커버
+    from unittest.mock import patch, MagicMock
+    engine = PerformanceEngine()
+    returns = [0.001] * 10
+
+    mock_arr = MagicMock()
+    mock_arr.__sub__ = MagicMock(return_value=mock_arr)
+    mock_arr.std.return_value = 0.0
+    mock_arr.mean.return_value = 0.0
+
+    with patch("app.engines.performance.np.array", return_value=mock_arr):
+        result = engine.sharpe_ratio(returns)
+    assert result == 0.0

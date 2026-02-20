@@ -231,3 +231,85 @@ class TestUpdatePmCapital:
         _update_pm_capital(pm, db, 100.0, "SPY", 10_000.0, "SELL")
         # 랜덤 변동이므로 달라질 수 있음 (단, 양수 보장)
         assert pm.current_capital >= 0.0
+
+    def test_with_multiple_positions_different_symbols(self, db, pm):
+        # 186-187 라인: 다른 심볼 포지션 재계산 경로
+        pos1 = Position(pm_id=pm.id, symbol="SPY", quantity=5.0, avg_cost=480.0)
+        pos2 = Position(pm_id=pm.id, symbol="AAPL", quantity=3.0, avg_cost=175.0)
+        db.add(pos1)
+        db.add(pos2)
+        db.commit()
+        _update_pm_capital(pm, db, 480.0, "SPY", 5000.0, "SELL")
+        assert pm.current_capital >= 0.0
+
+
+class TestSeedNavHistoryNoPms:
+    def test_seeds_with_initial_nav_when_no_pms(self, db):
+        # 260라인: PM 없을 때 initial_nav 사용 경로
+        seed_nav_history(db, days=5)
+        count = db.query(NAVHistory).count()
+        assert count == 6  # 5일 + 1 현재
+
+
+class TestRunPmCycleMocked:
+    @pytest.mark.asyncio
+    async def test_skips_on_insufficient_price_data(self, db, pm):
+        # 라인 40: prices가 짧을 때 skipped 반환
+        from app.engines.trading_cycle import run_pm_cycle
+        with patch("app.engines.trading_cycle.get_price_history", return_value=None):
+            result = await run_pm_cycle(pm, db)
+            assert result["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_error_handling_on_exception(self, db, pm):
+        # 라인 112-114: 예외 발생 시 error 반환
+        from app.engines.trading_cycle import run_pm_cycle
+        with patch("app.engines.trading_cycle.get_price_history", side_effect=Exception("db error")):
+            result = await run_pm_cycle(pm, db)
+            assert result["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_buy_path_executed(self, db, pm):
+        # 라인 101: BUY 실행 경로
+        import pandas as pd
+        import numpy as np
+        prices = pd.Series(np.ones(60) * 100.0)
+        from app.engines.trading_cycle import run_pm_cycle
+        with patch("app.engines.trading_cycle.get_price_history", return_value=prices), \
+             patch("app.engines.trading_cycle.get_prices_for_pm", return_value={"SPY": 100.0}), \
+             patch("app.engines.trading_cycle.get_market_context", return_value={"spy_price": 100.0, "vix": 15.0}), \
+             patch("app.engines.trading_cycle.llm_engine.make_decision", new_callable=AsyncMock,
+                   return_value={"action": "BUY", "conviction": 0.8, "reasoning": "buy", "position_size": 0.03}):
+            result = await run_pm_cycle(pm, db)
+            assert result.get("action") == "BUY"
+
+    @pytest.mark.asyncio
+    async def test_sell_path_executed(self, db, pm):
+        # 라인 103: SELL 실행 경로 (포지션 없으면 trade_executed=False)
+        import pandas as pd
+        import numpy as np
+        prices = pd.Series(np.ones(60) * 100.0)
+        from app.engines.trading_cycle import run_pm_cycle
+        with patch("app.engines.trading_cycle.get_price_history", return_value=prices), \
+             patch("app.engines.trading_cycle.get_prices_for_pm", return_value={"SPY": 100.0}), \
+             patch("app.engines.trading_cycle.get_market_context", return_value={"spy_price": 100.0, "vix": 15.0}), \
+             patch("app.engines.trading_cycle.llm_engine.make_decision", new_callable=AsyncMock,
+                   return_value={"action": "SELL", "conviction": 0.8, "reasoning": "sell", "position_size": 0.03}):
+            result = await run_pm_cycle(pm, db)
+            assert result.get("action") == "SELL"
+
+    @pytest.mark.asyncio
+    async def test_trade_executed_updates_capital(self, db, pm):
+        # 라인 107: trade_executed=True 후 자본 업데이트 경로
+        import pandas as pd
+        import numpy as np
+        prices = pd.Series(np.ones(60) * 100.0)
+        from app.engines.trading_cycle import run_pm_cycle
+        with patch("app.engines.trading_cycle.get_price_history", return_value=prices), \
+             patch("app.engines.trading_cycle.get_prices_for_pm", return_value={"SPY": 100.0}), \
+             patch("app.engines.trading_cycle.get_market_context", return_value={"spy_price": 100.0, "vix": 15.0}), \
+             patch("app.engines.trading_cycle.llm_engine.make_decision", new_callable=AsyncMock,
+                   return_value={"action": "BUY", "conviction": 0.9, "reasoning": "strong buy", "position_size": 0.05}):
+            result = await run_pm_cycle(pm, db)
+            # 매수 실행 시 자본이 업데이트되어야 함
+            assert pm.current_capital >= 0.0

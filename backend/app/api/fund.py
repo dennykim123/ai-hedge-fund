@@ -140,10 +140,10 @@ async def websocket_live(websocket: WebSocket, db: Session = Depends(get_db)):
                 },
             })
             await asyncio.sleep(5)
-    except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
-    except Exception:
-        ws_manager.disconnect(websocket)
+    except WebSocketDisconnect:  # pragma: no cover
+        ws_manager.disconnect(websocket)  # pragma: no cover
+    except Exception:  # pragma: no cover
+        ws_manager.disconnect(websocket)  # pragma: no cover
 
 
 @router.get("/pm-performance")

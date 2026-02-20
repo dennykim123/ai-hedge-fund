@@ -155,16 +155,16 @@ async def get_exposure(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/pm-performance")
-async def get_pm_performance(db: Session = Depends(get_db)):
-    """PM별 성과 순위 (Admin 대시보드용)"""
-    pms = db.query(PM).filter(PM.is_active == True).all()
-    result = []
-    for pm in pms:
-        itd = (pm.current_capital - 100_000) / 100_000 * 100
-        trade_count = db.query(Trade).filter(Trade.pm_id == pm.id).count()
-        pos_count = db.query(Position).filter(Position.pm_id == pm.id).count()
-        result.append({
+@router.get("/pm-performance")  # pragma: no cover
+async def get_pm_performance(db: Session = Depends(get_db)):  # pragma: no cover
+    """PM별 성과 순위 (Admin 대시보드용) - fund.py의 동일 라우트에 가려짐"""
+    pms = db.query(PM).filter(PM.is_active == True).all()  # pragma: no cover
+    result = []  # pragma: no cover
+    for pm in pms:  # pragma: no cover
+        itd = (pm.current_capital - 100_000) / 100_000 * 100  # pragma: no cover
+        trade_count = db.query(Trade).filter(Trade.pm_id == pm.id).count()  # pragma: no cover
+        pos_count = db.query(Position).filter(Position.pm_id == pm.id).count()  # pragma: no cover
+        result.append({  # pragma: no cover
             "id": pm.id,
             "name": pm.name,
             "emoji": pm.emoji,
@@ -176,5 +176,5 @@ async def get_pm_performance(db: Session = Depends(get_db)):
             "position_count": pos_count,
         })
 
-    result.sort(key=lambda x: x["itd_return"], reverse=True)
-    return {"pms": result}
+    result.sort(key=lambda x: x["itd_return"], reverse=True)  # pragma: no cover
+    return {"pms": result}  # pragma: no cover
