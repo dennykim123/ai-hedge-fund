@@ -80,3 +80,27 @@ async def get_social_freshness(db: Session = Depends(get_db)):
         "google_trends": {"status": "not_configured", "last_fetch": None},
         "news_api": {"status": "not_configured", "last_fetch": None},
     }
+
+
+@router.post("/reset")
+async def reset_fund(db: Session = Depends(get_db)):
+    """모든 거래 데이터를 삭제하고 PM 자본을 초기화합니다."""
+    from app.models.signal import Signal
+    from app.models.trade import Trade
+    from app.models.position import Position
+    from app.models.nav_history import NAVHistory
+    from app.models.pm import PM
+    from app.db.seed import seed_pms
+    from app.engines.trading_cycle import seed_nav_history
+
+    db.query(Signal).delete()
+    db.query(Trade).delete()
+    db.query(Position).delete()
+    db.query(NAVHistory).delete()
+    db.query(PM).delete()
+    db.commit()
+
+    seed_pms(db)
+    seed_nav_history(db)
+
+    return {"status": "ok", "message": "Fund reset complete. All data cleared and re-seeded."}
