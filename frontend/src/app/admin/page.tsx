@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminVitals } from "./components/AdminVitals";
 import { DashboardTab } from "./components/DashboardTab";
@@ -23,10 +23,12 @@ const VALID_TABS = [
   "system",
 ];
 
-export default function AdminPage() {
+function AdminPageInner() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab = VALID_TABS.includes(tabParam ?? "") ? tabParam! : "dashboard";
+  const activeTab = VALID_TABS.includes(tabParam ?? "")
+    ? tabParam!
+    : "dashboard";
   const [vitals, setVitals] = useState(null);
 
   const refreshVitals = useCallback(async () => {
@@ -57,5 +59,13 @@ export default function AdminPage() {
         {activeTab === "system" && <SystemTab />}
       </main>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense>
+      <AdminPageInner />
+    </Suspense>
   );
 }
