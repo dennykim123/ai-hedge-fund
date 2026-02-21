@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import { FlashNumber } from "@/components/ui/FlashNumber";
+import { useI18n } from "@/lib/i18n";
 import {
   AreaChart,
   Area,
@@ -13,7 +14,7 @@ import {
   ReferenceLine,
 } from "recharts";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const FEED_TYPE_COLORS: Record<string, string> = {
   trade: "bg-blue-500/20 text-blue-300",
@@ -56,6 +57,7 @@ interface PMPerf {
 }
 
 export function DashboardTab() {
+  const { t } = useI18n();
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [navHistory, setNavHistory] = useState<NavPoint[]>([]);
   const [navSummary, setNavSummary] = useState<NavSummary | null>(null);
@@ -109,10 +111,12 @@ export function DashboardTab() {
           (r: { action?: string }) =>
             r?.action === "BUY" || r?.action === "SELL",
         ).length ?? 0;
-      setCycleMsg(`Cycle complete: ${trades} trades executed`);
+      setCycleMsg(
+        `${t("dash.cycle_complete")}: ${trades} ${t("dash.trades_executed")}`,
+      );
       fetchData();
     } catch {
-      setCycleMsg("Error running cycle");
+      setCycleMsg(t("dash.error_cycle"));
     } finally {
       setRunningCycle(false);
     }
@@ -144,14 +148,14 @@ export function DashboardTab() {
         <div className="grid grid-cols-4 gap-4 flex-1 mr-4">
           {[
             {
-              label: "FUND NAV",
+              label: t("dash.fund_nav"),
               value: navSummary?.current_nav ?? 0,
               fmt: (v: number) =>
                 `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
               color: "text-cyan-400",
             },
             {
-              label: "ITD RETURN",
+              label: t("dash.itd_return"),
               value: navSummary?.total_return_pct ?? 0,
               fmt: (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`,
               color:
@@ -160,7 +164,7 @@ export function DashboardTab() {
                   : "text-[#ff6b6b]",
             },
             {
-              label: "SHARPE",
+              label: t("dash.sharpe"),
               value: navSummary?.sharpe_ratio ?? 0,
               fmt: (v: number) => v.toFixed(2),
               color:
@@ -169,7 +173,7 @@ export function DashboardTab() {
                   : "text-yellow-400",
             },
             {
-              label: "MAX DD",
+              label: t("dash.max_dd"),
               value: -(navSummary?.max_drawdown_pct ?? 0),
               fmt: (v: number) => `${v.toFixed(2)}%`,
               color: "text-[#ff6b6b]",
@@ -191,7 +195,7 @@ export function DashboardTab() {
             disabled={runningCycle}
             className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold rounded-lg text-sm transition whitespace-nowrap"
           >
-            {runningCycle ? "Running..." : "▶ Run All Cycles"}
+            {runningCycle ? t("dash.running") : `▶ ${t("dash.run_all")}`}
           </button>
           {cycleMsg && <p className="text-xs text-[#8b949e]">{cycleMsg}</p>}
         </div>
@@ -200,11 +204,11 @@ export function DashboardTab() {
       {/* NAV Chart */}
       <div className="glass-card p-5">
         <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-          FUND NAV HISTORY (60D)
+          {t("dash.nav_history")}
         </p>
         {navHistory.length < 2 ? (
           <div className="h-40 flex items-center justify-center text-[#8b949e] text-sm">
-            Loading NAV data...
+            {t("dash.loading_nav")}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
@@ -256,7 +260,7 @@ export function DashboardTab() {
         {/* PM Leaderboard */}
         <div className="glass-card p-5">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            PM LEADERBOARD
+            {t("dash.pm_leaderboard")}
           </p>
           <div className="space-y-2">
             {pmPerf.slice(0, 8).map((pm, idx) => (
@@ -298,7 +302,7 @@ export function DashboardTab() {
         {/* Activity Feed */}
         <div className="glass-card p-5">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            ACTIVITY FEED
+            {t("dash.activity_feed")}
           </p>
           <div className="max-h-72 overflow-y-auto">
             {feed.length > 0 ? (
@@ -329,7 +333,13 @@ export function DashboardTab() {
                         </span>
                         <span className="text-xs text-[#8b949e] ml-auto shrink-0">
                           {item.time
-                            ? new Date(item.time).toLocaleTimeString()
+                            ? new Date(item.time).toLocaleString("ko-KR", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
                             : ""}
                         </span>
                       </div>
@@ -340,9 +350,9 @@ export function DashboardTab() {
               </div>
             ) : (
               <div className="text-center py-8 text-[#8b949e] text-sm">
-                No activity yet.
+                {t("dash.no_activity")}
                 <br />
-                Run a cycle to see trades.
+                {t("dash.run_to_see")}
               </div>
             )}
           </div>

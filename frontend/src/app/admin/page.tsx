@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminVitals } from "./components/AdminVitals";
 import { DashboardTab } from "./components/DashboardTab";
 import { StrategicTab } from "./components/StrategicTab";
@@ -10,20 +11,22 @@ import { RiskTab } from "./components/RiskTab";
 import { AnalyticsTab } from "./components/AnalyticsTab";
 import { SystemTab } from "./components/SystemTab";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-const TABS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "strategic", label: "Strategic" },
-  { id: "pms", label: "PMs" },
-  { id: "portfolio", label: "Portfolio" },
-  { id: "risk", label: "Risk" },
-  { id: "analytics", label: "Analytics" },
-  { id: "system", label: "System" },
+const VALID_TABS = [
+  "dashboard",
+  "strategic",
+  "pms",
+  "portfolio",
+  "risk",
+  "analytics",
+  "system",
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = VALID_TABS.includes(tabParam ?? "") ? tabParam! : "dashboard";
   const [vitals, setVitals] = useState(null);
 
   const refreshVitals = useCallback(async () => {
@@ -44,21 +47,6 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3]">
       <AdminVitals vitals={vitals} />
-      <nav className="flex border-b border-[#30363d] px-4">
-        {TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
-              activeTab === id
-                ? "border-cyan-400 text-white"
-                : "border-transparent text-[#8b949e] hover:text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
       <main className="p-6">
         {activeTab === "dashboard" && <DashboardTab />}
         {activeTab === "strategic" && <StrategicTab />}

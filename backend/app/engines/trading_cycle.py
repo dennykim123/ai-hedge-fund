@@ -1,14 +1,22 @@
 """
 Trading Cycle Engine: 전체 트레이딩 사이클 오케스트레이션
-퀀트 시그널 생성 → LLM 판단 → Paper Trading 실행 → DB 저장 → NAV 업데이트
+퀀트 시그널 생성 → LLM 판단 → 브로커 주문 → DB 저장 → NAV 업데이트
+
+브로커 라우팅:
+  PM.broker_type == "kis"   → 한국투자증권 REST API (API 키 없으면 Paper 폴백)
+  PM.broker_type == "bybit" → Bybit REST API      (API 키 없으면 Paper 폴백)
+  PM.broker_type == "paper" → 로컬 시뮬레이션
 """
 
 import asyncio
+import logging
 from datetime import datetime
 import random
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.config import settings
 from app.engines.quant import QuantEngine
 from app.engines.llm import LLMEngine
 from app.engines.market_data import (
@@ -22,6 +30,8 @@ from app.models.position import Position
 from app.models.trade import Trade
 from app.models.signal import Signal
 from app.models.nav_history import NAVHistory
+
+logger = logging.getLogger(__name__)
 
 quant_engine = QuantEngine()
 llm_engine = LLMEngine()
@@ -67,16 +77,22 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
         market_context["current_price"] = current_price
 
         # 7. LLM 판단 (API 키 없으면 규칙 기반 폴백)
-        try:
-            decision = await llm_engine.make_decision(
-                pm_id=pm.id,
-                symbol=symbol,
-                quant_signals=signals,
-                market_context=market_context,
-            )
-        except Exception:
-            # API 키 없거나 에러 → 규칙 기반 폴백
+        provider = getattr(pm, "llm_provider", "claude")
+        if provider == "rule_based":
             decision = _rule_based_decision(pm.id, signals)
+        else:
+            try:
+                decision = await llm_engine.make_decision(
+                    pm_id=pm.id,
+                    symbol=symbol,
+                    quant_signals=signals,
+                    market_context=market_context,
+                    llm_provider=provider,
+                )
+            except (RuntimeError, ValueError, KeyError, ConnectionError) as e:
+                # API 키 없거나 에러 → 규칙 기반 폴백
+                logger.warning("LLM fallback for %s: %s", pm.id, e)
+                decision = _rule_based_decision(pm.id, signals)
 
         action = decision.get("action", "HOLD")
         conviction = decision.get("conviction", 0.0)
@@ -92,112 +108,170 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
             "composite_score": signals["composite_score"],
         }
 
-        # 8. Paper Trading 실행
-        if action in ("BUY", "SELL") and conviction >= 0.5:
+        # 8. 브로커 주문 실행 (KIS / Bybit / Paper 자동 라우팅)
+        if action in ("BUY", "SELL") and conviction >= settings.min_conviction:
+            from app.engines.broker import get_broker_for_pm
+            broker = get_broker_for_pm(getattr(pm, "broker_type", "paper"))
+
             trade_amount = pm.current_capital * position_size
             quantity = trade_amount / current_price
 
             if action == "BUY":
-                result.update(await _execute_buy(pm, symbol, quantity, current_price, db))
+                result.update(await _execute_buy(pm, symbol, quantity, current_price, db, broker))
             elif action == "SELL":
-                result.update(await _execute_sell(pm, symbol, quantity, current_price, db))
+                result.update(await _execute_sell(pm, symbol, quantity, current_price, db, broker))
 
-            # PM 자본 업데이트 (간소화: 랜덤 P&L)
             if result.get("trade_executed"):
-                _update_pm_capital(pm, db, current_price, symbol, trade_amount, action)
+                result["broker"] = getattr(broker, "__class__", type(broker)).__name__
+                result["broker_live"] = broker.is_live()
+                _update_pm_capital(pm, db)
 
         db.commit()
         return result
 
-    except Exception as e:
+    except (SQLAlchemyError, OSError, ValueError) as e:
         db.rollback()
+        logger.error("PM cycle error for %s: %s", pm.id, e)
         return {"status": "error", "reason": str(e)}
 
 
-async def _execute_buy(pm: PM, symbol: str, quantity: float, price: float, db: Session) -> dict:
-    """BUY 실행"""
-    # 기존 포지션 확인
-    existing = db.query(Position).filter(
-        Position.pm_id == pm.id, Position.symbol == symbol
-    ).first()
+async def _execute_buy(
+    pm: PM, symbol: str, quantity: float, price: float, db: Session, broker=None
+) -> dict:
+    """BUY 실행 — 브로커 주문 → DB 기록"""
+    from app.engines.broker import PaperAdapter
+    if broker is None:
+        broker = PaperAdapter()
 
     order_value = quantity * price
-    position_limit = pm.current_capital * 0.10
+    position_limit = pm.current_capital * settings.position_limit_pct
 
     if order_value > position_limit:
         quantity = position_limit / price
         order_value = quantity * price
 
-    if existing:
-        total_qty = existing.quantity + quantity
-        existing.avg_cost = (existing.quantity * existing.avg_cost + order_value) / total_qty
-        existing.quantity = total_qty
-    else:
-        pos = Position(pm_id=pm.id, symbol=symbol, quantity=quantity, avg_cost=price)
-        db.add(pos)
+    cash = _get_cash(pm, db)
+    if cash < order_value:
+        quantity = cash * settings.cash_reserve_pct / price
+        order_value = quantity * price
+        if quantity <= 0:
+            return {"trade_executed": False, "reason": "insufficient_cash"}
 
-    trade = Trade(
-        pm_id=pm.id,
-        symbol=symbol,
-        action="BUY",
-        quantity=quantity,
-        price=price,
-        conviction_score=0.7,
-        reasoning=f"Signal-driven BUY at ${price:.2f}",
-    )
-    db.add(trade)
-    return {"trade_executed": True, "quantity": quantity, "price": price}
+    # 브로커 주문 (실패 시 DB 기록 생략)
+    try:
+        order_result = await broker.place_order(symbol, quantity, "BUY")
+        if order_result.get("status") not in ("filled", "partially_filled"):
+            return {
+                "trade_executed": False,
+                "reason": order_result.get("reason", "broker_rejected"),
+                "broker_raw": order_result,
+            }
+        # 실제 체결 가격이 있으면 사용
+        filled_price = order_result.get("filled_avg_price") or price
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        logger.error("Broker BUY error for %s %s: %s", pm.id, symbol, e)
+        return {"trade_executed": False, "reason": f"broker_error: {e}"}
 
-
-async def _execute_sell(pm: PM, symbol: str, quantity: float, price: float, db: Session) -> dict:
-    """SELL 실행"""
+    # DB 기록
     existing = db.query(Position).filter(
         Position.pm_id == pm.id, Position.symbol == symbol
     ).first()
+    if existing:
+        total_qty = existing.quantity + quantity
+        existing.avg_cost = (existing.quantity * existing.avg_cost + quantity * filled_price) / total_qty
+        existing.quantity = total_qty
+    else:
+        db.add(Position(pm_id=pm.id, symbol=symbol, quantity=quantity, avg_cost=filled_price))
 
+    db.add(Trade(
+        pm_id=pm.id, symbol=symbol, action="BUY",
+        quantity=quantity, price=filled_price, conviction_score=0.7,
+        reasoning=f"[{broker.__class__.__name__}] BUY at ${filled_price:.4f}",
+    ))
+    return {"trade_executed": True, "quantity": quantity, "price": filled_price}
+
+
+async def _execute_sell(
+    pm: PM, symbol: str, quantity: float, price: float, db: Session, broker=None
+) -> dict:
+    """SELL 실행 — 포지션 확인 → 브로커 주문 → DB 기록"""
+    from app.engines.broker import PaperAdapter
+    if broker is None:
+        broker = PaperAdapter()
+
+    existing = db.query(Position).filter(
+        Position.pm_id == pm.id, Position.symbol == symbol
+    ).first()
     if not existing:
         return {"trade_executed": False, "reason": "no_position"}
 
     sell_qty = min(quantity, existing.quantity)
+
+    try:
+        order_result = await broker.place_order(symbol, sell_qty, "SELL")
+        if order_result.get("status") not in ("filled", "partially_filled"):
+            return {
+                "trade_executed": False,
+                "reason": order_result.get("reason", "broker_rejected"),
+                "broker_raw": order_result,
+            }
+        filled_price = order_result.get("filled_avg_price") or price
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        logger.error("Broker SELL error for %s %s: %s", pm.id, symbol, e)
+        return {"trade_executed": False, "reason": f"broker_error: {e}"}
+
+    pnl = (filled_price - existing.avg_cost) * sell_qty
     existing.quantity -= sell_qty
     if existing.quantity <= 0.001:
         db.delete(existing)
 
-    trade = Trade(
-        pm_id=pm.id,
-        symbol=symbol,
-        action="SELL",
-        quantity=sell_qty,
-        price=price,
-        conviction_score=0.7,
-        reasoning=f"Signal-driven SELL at ${price:.2f}",
-    )
-    db.add(trade)
-    return {"trade_executed": True, "quantity": sell_qty, "price": price}
+    db.add(Trade(
+        pm_id=pm.id, symbol=symbol, action="SELL",
+        quantity=sell_qty, price=filled_price, conviction_score=0.7,
+        reasoning=f"[{broker.__class__.__name__}] SELL at ${filled_price:.4f} (P&L: ${pnl:+.2f})",
+    ))
+    return {"trade_executed": True, "quantity": sell_qty, "price": filled_price, "pnl": round(pnl, 2)}
 
 
-def _update_pm_capital(pm: PM, db: Session, price: float, symbol: str, trade_amount: float, action: str):
-    """PM 자본 업데이트 (실제 NAV = 현금 + 포지션 가치)"""
-    import random
-    # 포지션 가치 재계산 (간소화)
+def _get_cash(pm: PM, db: Session) -> float:
+    """PM의 현금 잔고 = 총 자본 - 포지션 평가액"""
     positions = db.query(Position).filter(Position.pm_id == pm.id).all()
-    position_value = sum(p.quantity * price for p in positions if p.symbol == symbol)
-    for p in positions:
-        if p.symbol != symbol:
-            position_value += p.quantity * p.avg_cost * (1 + random.uniform(-0.01, 0.01))
+    position_value = sum(p.quantity * p.avg_cost for p in positions)
+    return max(pm.current_capital - position_value, 0.0)
 
-    # 전체 NAV = 나머지 현금 + 포지션 가치
-    pm.current_capital = max(pm.current_capital * (1 + random.uniform(-0.005, 0.015)), 0.0)
+
+def _update_pm_capital(pm: PM, db: Session) -> float:
+    """PM 자본 = 현금 잔고 + 포지션 현재가 기준 평가액. DB 업데이트로 변이 방지."""
+    from app.engines.market_data import get_current_price
+
+    positions = db.query(Position).filter(Position.pm_id == pm.id).all()
+    position_value = sum(
+        pos.quantity * get_current_price(pos.symbol) for pos in positions
+    )
+
+    cash = _get_cash(pm, db)
+    new_capital = round(cash + position_value, 2)
+    db.query(PM).filter(PM.id == pm.id).update({"current_capital": new_capital})
+    logger.info("PM %s capital updated: %s", pm.id, new_capital)
+    return new_capital
 
 
 def _rule_based_decision(pm_id: str, signals: dict) -> dict:
     """LLM 없을 때 규칙 기반 의사결정"""
     score = signals.get("composite_score", 0.0)
+    rsi = signals.get("rsi", 50.0)
 
-    if score > 0.5:
-        return {"action": "BUY", "conviction": min(0.5 + score * 0.5, 1.0), "reasoning": f"Strong buy signal: composite={score:.2f}", "position_size": 0.03}
-    elif score < -0.5:
-        return {"action": "SELL", "conviction": min(0.5 + abs(score) * 0.5, 1.0), "reasoning": f"Strong sell signal: composite={score:.2f}", "position_size": 0.03}
+    # RSI 과매도(< 35) + 양수 신호 → 강한 BUY
+    # RSI 과매수(> 65) + 음수 신호 → 강한 SELL
+    rsi_boost = 0.15 if rsi < 35 else (-0.15 if rsi > 65 else 0.0)
+    adjusted_score = score + rsi_boost
+
+    if adjusted_score > 0.25:
+        conviction = min(0.5 + adjusted_score, 1.0)
+        return {"action": "BUY", "conviction": conviction, "reasoning": f"Buy signal: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.04}
+    elif adjusted_score < -0.25:
+        conviction = min(0.5 + abs(adjusted_score), 1.0)
+        return {"action": "SELL", "conviction": conviction, "reasoning": f"Sell signal: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.04}
     else:
         return {"action": "HOLD", "conviction": 0.3, "reasoning": f"Neutral signal: composite={score:.2f}", "position_size": 0.0}
 

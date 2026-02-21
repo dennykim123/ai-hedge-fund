@@ -6,7 +6,7 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { SkeletonTable } from "@/components/ui/SkeletonCard";
 import { FlashNumber } from "@/components/ui/FlashNumber";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 function returnColor(v: number) {
   return v >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]";

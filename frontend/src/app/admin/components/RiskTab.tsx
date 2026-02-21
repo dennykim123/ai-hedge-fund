@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { RadialGauge } from "@/components/ui/RadialGauge";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 import {
   RadarChart,
   Radar,
@@ -12,7 +13,7 @@ import {
   Tooltip,
 } from "recharts";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface RiskData {
   exposure: { gross_pct: number; net_pct: number };
@@ -55,9 +56,19 @@ function riskColor(value: number, warn: number, danger: number) {
 }
 
 export function RiskTab() {
+  const { t } = useI18n();
   const [risk, setRisk] = useState<RiskData | null>(null);
   const [radarData, setRadarData] = useState<RadarData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const riskLabels: Record<string, TranslationKey> = {
+    Concentration: "risk.th_concentration",
+    Volatility: "risk.th_volatility",
+    Drawdown: "risk.th_drawdown",
+    Correlation: "risk.th_correlation",
+    Leverage: "risk.th_leverage",
+    Liquidity: "risk.th_liquidity",
+  };
 
   useEffect(() => {
     const fetchData = () => {
@@ -80,7 +91,7 @@ export function RiskTab() {
 
   const radarChartData = radarData
     ? RISK_THRESHOLDS.map(({ subject, key }) => ({
-        subject,
+        subject: riskLabels[subject] ? t(riskLabels[subject]) : subject,
         value: radarData[key as keyof RadarData] ?? 0,
       }))
     : [];
@@ -98,36 +109,55 @@ export function RiskTab() {
     );
   }
 
-  const overallRiskScore =
-    radarData
-      ? Math.round(
-          (radarData.concentration +
-            radarData.volatility +
-            radarData.drawdown +
-            radarData.correlation +
-            radarData.leverage) /
-            5
-        )
-      : 0;
+  const overallRiskScore = radarData
+    ? Math.round(
+        (radarData.concentration +
+          radarData.volatility +
+          radarData.drawdown +
+          radarData.correlation +
+          radarData.leverage) /
+          5,
+      )
+    : 0;
 
   const riskLevel =
     overallRiskScore >= 70
-      ? { label: "HIGH RISK", color: "text-[#ff6b6b]", bg: "bg-red-900/20 border-red-500/30" }
+      ? {
+          label: t("risk.high"),
+          color: "text-[#ff6b6b]",
+          bg: "bg-red-900/20 border-red-500/30",
+        }
       : overallRiskScore >= 40
-        ? { label: "MODERATE RISK", color: "text-[#f0b429]", bg: "bg-yellow-900/20 border-yellow-500/30" }
-        : { label: "LOW RISK", color: "text-[#00d4aa]", bg: "bg-green-900/20 border-green-500/30" };
+        ? {
+            label: t("risk.moderate"),
+            color: "text-[#f0b429]",
+            bg: "bg-yellow-900/20 border-yellow-500/30",
+          }
+        : {
+            label: t("risk.low"),
+            color: "text-[#00d4aa]",
+            bg: "bg-green-900/20 border-green-500/30",
+          };
 
   return (
     <div className="space-y-6">
       {/* Risk Level Banner */}
-      <div className={`border rounded-xl p-4 flex items-center justify-between ${riskLevel.bg}`}>
+      <div
+        className={`border rounded-xl p-4 flex items-center justify-between ${riskLevel.bg}`}
+      >
         <div>
-          <p className={`text-xs tracking-widest mb-1 ${riskLevel.color}`}>OVERALL RISK ASSESSMENT</p>
-          <p className={`text-2xl font-bold font-mono ${riskLevel.color}`}>{riskLevel.label}</p>
+          <p className={`text-xs tracking-widest mb-1 ${riskLevel.color}`}>
+            {t("risk.overall")}
+          </p>
+          <p className={`text-2xl font-bold font-mono ${riskLevel.color}`}>
+            {riskLevel.label}
+          </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-[#8b949e]">RISK SCORE</p>
-          <p className={`text-4xl font-mono font-bold ${riskLevel.color}`}>{overallRiskScore}</p>
+          <p className="text-xs text-[#8b949e]">{t("risk.score")}</p>
+          <p className={`text-4xl font-mono font-bold ${riskLevel.color}`}>
+            {overallRiskScore}
+          </p>
           <p className="text-xs text-[#8b949e]">/ 100</p>
         </div>
       </div>
@@ -135,7 +165,7 @@ export function RiskTab() {
       {/* Gauges Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <RadialGauge
-          label="GROSS EXPOSURE"
+          label={t("risk.gross_exp")}
           value={risk?.exposure?.gross_pct ?? null}
           max={300}
           warnAt={150}
@@ -143,7 +173,7 @@ export function RiskTab() {
           unit="%"
         />
         <RadialGauge
-          label="NET EXPOSURE"
+          label={t("risk.net_exp")}
           value={risk?.exposure?.net_pct ?? null}
           max={100}
           warnAt={50}
@@ -151,7 +181,7 @@ export function RiskTab() {
           unit="%"
         />
         <RadialGauge
-          label="MARGIN UTIL"
+          label={t("risk.margin")}
           value={risk?.margin?.utilization_pct ?? null}
           max={100}
           warnAt={50}
@@ -172,7 +202,9 @@ export function RiskTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Risk Radar */}
         <div className="glass-card p-5">
-          <p className="text-xs text-[#8b949e] tracking-widest mb-4">RISK RADAR</p>
+          <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+            {t("risk.radar")}
+          </p>
           {radarChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <RadarChart data={radarChartData} cx="50%" cy="50%">
@@ -188,7 +220,10 @@ export function RiskTab() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  formatter={(v: number | undefined) => [`${(v ?? 0).toFixed(0)}`, "Score"]}
+                  formatter={(v: number | undefined) => [
+                    `${(v ?? 0).toFixed(0)}`,
+                    "Score",
+                  ]}
                 />
                 <Radar
                   dataKey="value"
@@ -201,14 +236,16 @@ export function RiskTab() {
             </ResponsiveContainer>
           ) : (
             <div className="h-60 flex items-center justify-center text-[#8b949e] text-sm">
-              No risk data available
+              {t("risk.no_data")}
             </div>
           )}
         </div>
 
         {/* Risk Metrics Breakdown */}
         <div className="glass-card p-5">
-          <p className="text-xs text-[#8b949e] tracking-widest mb-4">RISK METRICS BREAKDOWN</p>
+          <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+            {t("risk.breakdown")}
+          </p>
           <div className="space-y-3">
             {RISK_THRESHOLDS.map(({ subject, key, warn, danger }) => {
               const value = radarData?.[key as keyof RadarData] ?? 0;
@@ -216,7 +253,9 @@ export function RiskTab() {
               return (
                 <div key={key}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-[#8b949e]">{subject}</span>
+                    <span className="text-[#8b949e]">
+                      {riskLabels[subject] ? t(riskLabels[subject]) : subject}
+                    </span>
                     <span className="font-mono" style={{ color }}>
                       {value.toFixed(0)}
                     </span>
@@ -238,31 +277,35 @@ export function RiskTab() {
           {/* Decision Stats */}
           {risk?.decisions_24h && (
             <div className="mt-6 pt-4 border-t border-[#30363d]">
-              <p className="text-xs text-[#8b949e] tracking-widest mb-3">RISK DECISIONS (24H)</p>
+              <p className="text-xs text-[#8b949e] tracking-widest mb-3">
+                {t("risk.decisions")}
+              </p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-[#1c2128] p-3 rounded-lg text-center">
                   <p className="text-lg font-mono font-bold text-white">
                     {risk.decisions_24h.total}
                   </p>
-                  <p className="text-xs text-[#8b949e]">Total</p>
+                  <p className="text-xs text-[#8b949e]">{t("risk.total")}</p>
                 </div>
                 <div className="bg-[#1c2128] p-3 rounded-lg text-center">
                   <p className="text-lg font-mono font-bold text-[#00d4aa]">
                     {risk.decisions_24h.approved}
                   </p>
-                  <p className="text-xs text-[#8b949e]">Approved</p>
+                  <p className="text-xs text-[#8b949e]">{t("risk.approved")}</p>
                 </div>
                 <div className="bg-[#1c2128] p-3 rounded-lg text-center">
                   <p className="text-lg font-mono font-bold text-[#ff6b6b]">
                     {risk.decisions_24h.rejected}
                   </p>
-                  <p className="text-xs text-[#8b949e]">Rejected</p>
+                  <p className="text-xs text-[#8b949e]">{t("risk.rejected")}</p>
                 </div>
               </div>
               {risk.decisions_24h.total > 0 && (
                 <div className="mt-3">
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-[#8b949e]">Approval Rate</span>
+                    <span className="text-[#8b949e]">
+                      {t("risk.approval_rate")}
+                    </span>
                     <span className="text-[#00d4aa] font-mono">
                       {risk.decisions_24h.approval_rate.toFixed(0)}%
                     </span>
@@ -281,17 +324,23 @@ export function RiskTab() {
           {/* Concentration Info */}
           {risk?.concentration?.top_ticker && (
             <div className="mt-4 pt-4 border-t border-[#30363d]">
-              <p className="text-xs text-[#8b949e] tracking-widest mb-2">CONCENTRATION</p>
+              <p className="text-xs text-[#8b949e] tracking-widest mb-2">
+                {t("risk.concentration")}
+              </p>
               <div className="flex gap-3">
                 <div className="bg-[#1c2128] p-3 rounded-lg flex-1 text-center">
-                  <p className="text-xs text-[#8b949e] mb-1">TOP TICKER</p>
+                  <p className="text-xs text-[#8b949e] mb-1">
+                    {t("risk.top_ticker")}
+                  </p>
                   <p className="font-mono font-bold text-white">
                     {risk.concentration.top_ticker}
                   </p>
                 </div>
                 {risk.concentration.top_sector && (
                   <div className="bg-[#1c2128] p-3 rounded-lg flex-1 text-center">
-                    <p className="text-xs text-[#8b949e] mb-1">TOP SECTOR</p>
+                    <p className="text-xs text-[#8b949e] mb-1">
+                      {t("risk.top_sector")}
+                    </p>
                     <p className="font-mono font-bold text-white">
                       {risk.concentration.top_sector}
                     </p>

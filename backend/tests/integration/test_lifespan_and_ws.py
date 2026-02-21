@@ -61,7 +61,7 @@ class TestConnectionManager:
         mgr = ConnectionManager()
         ws_good = AsyncMock(spec=WebSocket)
         ws_dead = AsyncMock(spec=WebSocket)
-        ws_dead.send_text.side_effect = Exception("Connection closed")
+        ws_dead.send_text.side_effect = RuntimeError("Connection closed")
         mgr.active = [ws_good, ws_dead]
 
         await mgr.broadcast({"type": "test"})

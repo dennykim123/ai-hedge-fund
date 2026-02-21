@@ -56,6 +56,7 @@ async def get_pms(db: Session = Depends(get_db)):
                 emoji=pm.emoji,
                 strategy=pm.strategy,
                 llm_provider=pm.llm_provider,
+                broker_type=pm.broker_type,
                 current_capital=round(pm.current_capital, 2),
                 itd_return=round(itd, 2),
             )
@@ -109,7 +110,7 @@ class ConnectionManager:
         for ws in self.active:
             try:
                 await ws.send_text(msg)
-            except Exception:
+            except (WebSocketDisconnect, ConnectionError, RuntimeError):
                 dead.append(ws)
         for ws in dead:
             self.disconnect(ws)
@@ -136,7 +137,7 @@ async def websocket_live(websocket: WebSocket, db: Session = Depends(get_db)):
                     "nav": round(total_nav, 2),
                     "daily_return_pct": round(daily_ret, 4),
                     "active_pms": len(pms),
-                    "timestamp": __import__("datetime").datetime.now().isoformat(),
+                    "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 },
             })
             await asyncio.sleep(5)

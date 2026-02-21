@@ -16,6 +16,7 @@ class PMSummary(BaseModel):
     emoji: str
     strategy: str
     llm_provider: str
+    broker_type: str
     current_capital: float
     itd_return: float
 

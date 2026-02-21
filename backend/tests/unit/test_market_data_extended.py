@@ -38,7 +38,7 @@ class TestGetPriceHistoryYfinancePath:
     def test_yfinance_exception_falls_back_to_mock(self):
         with patch("app.engines.market_data.YFINANCE_AVAILABLE", True), \
              patch("app.engines.market_data.yf") as mock_yf:
-            mock_yf.Ticker.side_effect = Exception("Network error")
+            mock_yf.Ticker.side_effect = OSError("Network error")
             from app.engines.market_data import get_price_history
             result = get_price_history("SPY", days=30)
             assert isinstance(result, pd.Series)
@@ -90,7 +90,7 @@ class TestGetCurrentPriceYfinancePath:
     def test_yfinance_exception_falls_back(self):
         with patch("app.engines.market_data.YFINANCE_AVAILABLE", True), \
              patch("app.engines.market_data.yf") as mock_yf:
-            mock_yf.Ticker.side_effect = Exception("API error")
+            mock_yf.Ticker.side_effect = OSError("API error")
             from app.engines.market_data import get_current_price
             result = get_current_price("SPY")
             assert result > 0

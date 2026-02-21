@@ -1,4 +1,7 @@
+"use client";
+
 import { PMSummary } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 function returnToColor(ret: number): string {
   if (ret > 5) return "rgba(0,212,170,0.9)";
@@ -14,9 +17,11 @@ function returnToTextColor(ret: number): string {
 }
 
 export function PMHeatmap({ pms }: { pms: PMSummary[] }) {
+  const { t } = useI18n();
+
   return (
     <div className="glass-card p-5">
-      <p className="text-xs text-[#8b949e] tracking-widest mb-4">PM PERFORMANCE HEATMAP</p>
+      <p className="text-xs text-[#8b949e] tracking-widest mb-4">{t("ov.pm_heatmap")}</p>
       <div className="grid grid-cols-4 lg:grid-cols-6 gap-2">
         {pms.map((pm) => (
           <div

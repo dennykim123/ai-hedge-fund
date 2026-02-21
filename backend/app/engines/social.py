@@ -125,7 +125,7 @@ class SocialEngine:
                 "subreddits": subs,
                 "timestamp": datetime.now().isoformat(),
             }
-        except Exception as e:
+        except (ConnectionError, OSError, ValueError) as e:
             return {**self._mock_reddit(symbol), "error": str(e)}
 
     def _mock_reddit(self, symbol: str) -> dict:
@@ -168,7 +168,7 @@ class SocialEngine:
                 "source": "google_trends",
                 "timestamp": datetime.now().isoformat(),
             }
-        except Exception as e:
+        except (ConnectionError, OSError, ValueError) as e:
             return {**self._mock_trends(keyword), "error": str(e)}
 
     def _mock_trends(self, keyword: str) -> dict:

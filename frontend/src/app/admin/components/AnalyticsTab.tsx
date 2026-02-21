@@ -10,8 +10,9 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { useI18n } from "@/lib/i18n";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface AlphaEntry {
   pm_id: string;
@@ -53,10 +54,13 @@ function returnColor(v: number) {
 }
 
 export function AnalyticsTab() {
+  const { t } = useI18n();
   const [alpha, setAlpha] = useState<AlphaEntry[]>([]);
   const [providers, setProviders] = useState<ProviderEntry[]>([]);
   const [conviction, setConviction] = useState<ConvictionBucket[]>([]);
-  const [activeView, setActiveView] = useState<"alpha" | "providers" | "conviction">("alpha");
+  const [activeView, setActiveView] = useState<
+    "alpha" | "providers" | "conviction"
+  >("alpha");
 
   useEffect(() => {
     Promise.all([
@@ -73,9 +77,9 @@ export function AnalyticsTab() {
   }, []);
 
   const views = [
-    { id: "alpha" as const, label: "Alpha Leaderboard" },
-    { id: "providers" as const, label: "By Provider" },
-    { id: "conviction" as const, label: "Conviction Accuracy" },
+    { id: "alpha" as const, label: t("anal.alpha") },
+    { id: "providers" as const, label: t("anal.providers") },
+    { id: "conviction" as const, label: t("anal.conviction_acc") },
   ];
 
   const returnBarData = alpha.map((pm) => ({
@@ -110,7 +114,7 @@ export function AnalyticsTab() {
           {returnBarData.length > 0 && (
             <div className="glass-card p-5">
               <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-                PM RETURN COMPARISON
+                {t("anal.pm_return")}
               </p>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={returnBarData} barSize={18}>
@@ -155,7 +159,7 @@ export function AnalyticsTab() {
           {/* Full Leaderboard Table */}
           <div className="glass-card p-5">
             <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-              FULL ALPHA LEADERBOARD
+              {t("anal.full_alpha")}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -163,12 +167,12 @@ export function AnalyticsTab() {
                   <tr className="text-[#8b949e] text-xs">
                     <th className="text-left pb-3">#</th>
                     <th className="text-left pb-3">PM</th>
-                    <th className="text-right pb-3">RETURN</th>
-                    <th className="text-right pb-3">ALPHA vs SPY</th>
+                    <th className="text-right pb-3">{t("anal.return")}</th>
+                    <th className="text-right pb-3">{t("anal.alpha_spy")}</th>
                     <th className="text-right pb-3 text-cyan-600">SHARPE</th>
                     <th className="text-right pb-3 text-cyan-600">SORTINO</th>
                     <th className="text-right pb-3 text-cyan-600">MAX DD</th>
-                    <th className="text-right pb-3">DAYS</th>
+                    <th className="text-right pb-3">{t("anal.days")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,7 +257,9 @@ export function AnalyticsTab() {
                   </span>
                 </div>
                 <div className="mb-4">
-                  <p className="text-xs text-[#8b949e] mb-1">AVG RETURN</p>
+                  <p className="text-xs text-[#8b949e] mb-1">
+                    {t("anal.avg_return")}
+                  </p>
                   <p
                     className="text-2xl font-mono font-bold"
                     style={{ color: returnColor(prov.avg_return) }}
@@ -276,7 +282,9 @@ export function AnalyticsTab() {
                         {pmData && (
                           <span
                             className="font-mono text-xs"
-                            style={{ color: returnColor(pmData.total_return_pct) }}
+                            style={{
+                              color: returnColor(pmData.total_return_pct),
+                            }}
                           >
                             {pmData.total_return_pct >= 0 ? "+" : ""}
                             {pmData.total_return_pct.toFixed(2)}%
@@ -294,7 +302,7 @@ export function AnalyticsTab() {
           {providers.length > 0 && (
             <div className="glass-card p-5">
               <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-                PROVIDER AVERAGE RETURNS
+                {t("anal.provider_returns")}
               </p>
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart
@@ -348,13 +356,13 @@ export function AnalyticsTab() {
       {activeView === "conviction" && (
         <div className="glass-card p-5">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            CONVICTION SCORE ACCURACY CALIBRATION
+            {t("anal.conviction_cal")}
           </p>
           {conviction.every((b) => b.total === 0) ? (
             <div className="text-center py-12 text-[#8b949e] text-sm">
               <p className="text-4xl mb-3">📊</p>
-              <p>No trades recorded yet.</p>
-              <p className="mt-1">Run trading cycles to see conviction accuracy data.</p>
+              <p>{t("anal.no_trades")}</p>
+              <p className="mt-1">{t("anal.run_to_see")}</p>
             </div>
           ) : (
             <>
@@ -389,7 +397,13 @@ export function AnalyticsTab() {
                     {conviction.map((b, i) => (
                       <Cell
                         key={i}
-                        fill={b.accuracy >= 60 ? "#00d4aa" : b.accuracy >= 40 ? "#f0b429" : "#ff6b6b"}
+                        fill={
+                          b.accuracy >= 60
+                            ? "#00d4aa"
+                            : b.accuracy >= 40
+                              ? "#f0b429"
+                              : "#ff6b6b"
+                        }
                         fillOpacity={0.85}
                       />
                     ))}
@@ -400,21 +414,22 @@ export function AnalyticsTab() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[#8b949e] text-xs">
-                      <th className="text-left pb-2">CONVICTION RANGE</th>
-                      <th className="text-right pb-2">TRADES</th>
-                      <th className="text-right pb-2">CORRECT</th>
-                      <th className="text-right pb-2">ACCURACY</th>
+                      <th className="text-left pb-2">{t("anal.conv_range")}</th>
+                      <th className="text-right pb-2">{t("anal.trades")}</th>
+                      <th className="text-right pb-2">{t("anal.correct")}</th>
+                      <th className="text-right pb-2">{t("anal.accuracy")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {conviction.map((b) => (
-                      <tr
-                        key={b.range}
-                        className="border-t border-[#30363d]"
-                      >
+                      <tr key={b.range} className="border-t border-[#30363d]">
                         <td className="py-2 font-mono">{b.range}</td>
-                        <td className="py-2 text-right text-[#8b949e]">{b.total}</td>
-                        <td className="py-2 text-right text-[#8b949e]">{b.correct}</td>
+                        <td className="py-2 text-right text-[#8b949e]">
+                          {b.total}
+                        </td>
+                        <td className="py-2 text-right text-[#8b949e]">
+                          {b.correct}
+                        </td>
                         <td
                           className="py-2 text-right font-mono font-bold"
                           style={{

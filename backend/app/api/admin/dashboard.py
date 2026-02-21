@@ -31,7 +31,7 @@ async def get_activity_feed(limit: int = 30, db: Session = Depends(get_db)):
                 "emoji": "\U0001f4bc",
                 "type": "trade",
                 "summary": f"{t.pm_id} {t.action} {t.quantity} {t.symbol} @ ${t.price:.2f}",
-                "time": t.executed_at.isoformat() if t.executed_at else None,
+                "time": (t.executed_at.isoformat() + "Z") if t.executed_at else None,
                 "details": {
                     "pm_id": t.pm_id,
                     "symbol": t.symbol,

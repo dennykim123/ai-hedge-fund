@@ -53,7 +53,10 @@ def test_system_prompts_cover_all_pms():
 def test_client_property_none_without_api_key():
     engine = LLMEngine()
     # API 키 없으면 client는 None
-    assert engine.client is None
+    with patch("app.engines.llm.settings") as mock_settings:
+        mock_settings.anthropic_api_key = ""
+        engine._claude_client = None  # 리셋
+        assert engine.claude_client is None
 
 
 def test_client_property_creates_anthropic_with_key():
@@ -62,8 +65,8 @@ def test_client_property_creates_anthropic_with_key():
     with patch("app.engines.llm.settings") as mock_settings, \
          patch("anthropic.Anthropic", return_value=mock_anthropic) as mock_cls:
         mock_settings.anthropic_api_key = "test_key_123"
-        engine._client = None  # 리셋
-        client = engine.client
+        engine._claude_client = None  # 리셋
+        client = engine.claude_client
         mock_cls.assert_called_once_with(api_key="test_key_123")
 
 
@@ -76,7 +79,7 @@ async def test_call_claude_parses_json():
     mock_msg.content = [MagicMock(text=json.dumps(expected))]
     mock_client = MagicMock()
     mock_client.messages.create.return_value = mock_msg
-    engine._client = mock_client
+    engine._claude_client = mock_client
 
     result = await engine._call_claude("atlas", "test prompt")
     assert result["action"] == "BUY"

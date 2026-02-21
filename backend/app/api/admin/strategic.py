@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.db.base import get_db
 from app.models.pm import PM
@@ -93,7 +93,7 @@ async def get_rebalance_status(db: Session = Depends(get_db)):
     last_nav = db.query(NAVHistory).order_by(NAVHistory.id.desc()).first()
     return {
         "in_progress": False,
-        "last_rebalance": last_nav.recorded_at.isoformat() if last_nav else None,
+        "last_rebalance": (last_nav.recorded_at.isoformat() + "Z") if last_nav else None,
         "next_scheduled": None,
         "progress_pct": 0,
         "last_action": "Signal generation cycle",
@@ -107,5 +107,5 @@ async def get_social_signals():
     return {
         "signals": signals,
         "tipping_points": [s for s in signals if s["is_tipping_point"]],
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }

@@ -9,6 +9,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { useI18n } from "@/lib/i18n";
 
 interface DataPoint {
   date: string;
@@ -17,17 +18,18 @@ interface DataPoint {
 }
 
 export function NAVSparkline({ data }: { data: DataPoint[] }) {
+  const { t } = useI18n();
   const isPositive = data.length > 1 && data[data.length - 1].return_pct >= 0;
   const color = isPositive ? "#00d4aa" : "#ff6b6b";
 
   return (
     <div className="glass-card p-5">
       <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-        NAV HISTORY (7D)
+        {t("ov.nav_history")}
       </p>
       {data.length < 2 ? (
         <div className="h-32 flex items-center justify-center text-[#8b949e] text-sm">
-          Data collecting...
+          {t("ov.data_collecting")}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={120}>

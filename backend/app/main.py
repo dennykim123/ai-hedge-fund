@@ -12,7 +12,9 @@ from app.api.admin.risk import router as admin_risk_router
 from app.api.admin.analytics import router as admin_analytics_router
 from app.api.admin.system import router as admin_system_router
 from app.api.trading import router as trading_router
+from app.config import settings
 from app.db.base import Base, engine, get_db
+from app.core.scheduler import start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
@@ -24,14 +26,17 @@ async def lifespan(app: FastAPI):
 
     seed_pms(db)
     seed_nav_history(db)
+    db.close()
+    start_scheduler(interval_seconds=300)  # 5분마다 자동 거래 사이클
     yield
+    stop_scheduler()
 
 
 app = FastAPI(title="AI Hedge Fund", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:4000", "http://localhost:4001"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PMSummary } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PROVIDER_COLORS: Record<string, string> = {
   claude: "bg-orange-500/20 text-orange-400 border-orange-500/30",
@@ -20,8 +21,8 @@ const STRATEGY_TAGS: Record<string, string> = {
   "Multi-Persona": "🏛️",
   "Event-Driven": "🔬",
   "Smart Money": "🕵️",
-  "Contrarian": "💀",
-  "Crypto": "₿",
+  Contrarian: "💀",
+  Crypto: "₿",
   "Pure Quant": "📊",
   "Asia Markets": "🌏",
   "Trend Following": "⚡",
@@ -32,14 +33,17 @@ const STRATEGY_TAGS: Record<string, string> = {
 function ReturnBadge({ value }: { value: number }) {
   const isPos = value >= 0;
   return (
-    <span className={`font-mono font-bold text-lg ${isPos ? "text-[#00d4aa]" : "text-[#ff6b6b]"}`}>
-      {isPos ? "+" : ""}{value.toFixed(2)}%
+    <span
+      className={`font-mono font-bold text-lg ${isPos ? "text-[#00d4aa]" : "text-[#ff6b6b]"}`}
+    >
+      {isPos ? "+" : ""}
+      {value.toFixed(2)}%
     </span>
   );
 }
 
 function MiniBar({ value, max = 10 }: { value: number; max?: number }) {
-  const pct = Math.min(Math.abs(value) / max * 100, 100);
+  const pct = Math.min((Math.abs(value) / max) * 100, 100);
   const isPos = value >= 0;
   return (
     <div className="w-full bg-[#21262d] rounded-full h-1.5 mt-1">
@@ -52,6 +56,7 @@ function MiniBar({ value, max = 10 }: { value: number; max?: number }) {
 }
 
 export default function PMsPage() {
+  const { t } = useI18n();
   const [pms, setPMs] = useState<PMSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"return" | "capital" | "name">("return");
@@ -59,7 +64,10 @@ export default function PMsPage() {
   useEffect(() => {
     fetch(`${BASE_URL}/api/fund/pms`)
       .then((r) => r.json())
-      .then((data) => { setPMs(data); setLoading(false); })
+      .then((data) => {
+        setPMs(data);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
@@ -70,16 +78,21 @@ export default function PMsPage() {
   });
 
   const totalNAV = pms.reduce((s, p) => s + p.current_capital, 0);
-  const bestPM = pms.reduce((best, p) => (!best || p.itd_return > best.itd_return) ? p : best, pms[0]);
-  const avgReturn = pms.length ? pms.reduce((s, p) => s + p.itd_return, 0) / pms.length : 0;
+  const bestPM = pms.reduce(
+    (best, p) => (!best || p.itd_return > best.itd_return ? p : best),
+    pms[0],
+  );
+  const avgReturn = pms.length
+    ? pms.reduce((s, p) => s + p.itd_return, 0) / pms.length
+    : 0;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">AI Portfolio Managers</h1>
-          <p className="text-[#8b949e] text-sm mt-1">11 AI personalities, each with distinct strategies</p>
+          <h1 className="text-2xl font-bold text-white">{t("pms.title")}</h1>
+          <p className="text-[#8b949e] text-sm mt-1">{t("pms.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           {(["return", "capital", "name"] as const).map((s) => (
@@ -88,7 +101,11 @@ export default function PMsPage() {
               onClick={() => setSortBy(s)}
               className={`px-3 py-1.5 text-xs rounded-lg border transition ${sortBy === s ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "border-[#30363d] text-[#8b949e] hover:border-[#8b949e]"}`}
             >
-              {s === "return" ? "By Return" : s === "capital" ? "By Capital" : "By Name"}
+              {s === "return"
+                ? t("pms.sort_return")
+                : s === "capital"
+                  ? t("pms.sort_capital")
+                  : t("pms.sort_name")}
             </button>
           ))}
         </div>
@@ -97,17 +114,28 @@ export default function PMsPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="glass-card p-4">
-          <p className="text-xs text-[#8b949e] tracking-widest">TOTAL NAV</p>
-          <p className="text-xl font-mono font-bold text-cyan-400">${totalNAV.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-        </div>
-        <div className="glass-card p-4">
-          <p className="text-xs text-[#8b949e] tracking-widest">AVG RETURN</p>
-          <p className={`text-xl font-mono font-bold ${avgReturn >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]"}`}>
-            {avgReturn >= 0 ? "+" : ""}{avgReturn.toFixed(2)}%
+          <p className="text-xs text-[#8b949e] tracking-widest">
+            {t("pms.total_nav")}
+          </p>
+          <p className="text-xl font-mono font-bold text-cyan-400">
+            ${totalNAV.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
         </div>
         <div className="glass-card p-4">
-          <p className="text-xs text-[#8b949e] tracking-widest">BEST PM</p>
+          <p className="text-xs text-[#8b949e] tracking-widest">
+            {t("pms.avg_return")}
+          </p>
+          <p
+            className={`text-xl font-mono font-bold ${avgReturn >= 0 ? "text-[#00d4aa]" : "text-[#ff6b6b]"}`}
+          >
+            {avgReturn >= 0 ? "+" : ""}
+            {avgReturn.toFixed(2)}%
+          </p>
+        </div>
+        <div className="glass-card p-4">
+          <p className="text-xs text-[#8b949e] tracking-widest">
+            {t("pms.best_pm")}
+          </p>
           <p className="text-xl font-mono font-bold text-yellow-400">
             {bestPM ? `${bestPM.emoji} ${bestPM.name}` : "—"}
           </p>
@@ -124,8 +152,10 @@ export default function PMsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sorted.map((pm, idx) => {
-            const providerColor = PROVIDER_COLORS[pm.llm_provider] ?? PROVIDER_COLORS.default;
-            const allocationPct = totalNAV > 0 ? (pm.current_capital / totalNAV * 100) : 0;
+            const providerColor =
+              PROVIDER_COLORS[pm.llm_provider] ?? PROVIDER_COLORS.default;
+            const allocationPct =
+              totalNAV > 0 ? (pm.current_capital / totalNAV) * 100 : 0;
             return (
               <Link key={pm.id} href={`/pms/${pm.id}`}>
                 <div className="glass-card p-5 hover:border-cyan-500/50 transition-all cursor-pointer group">
@@ -135,13 +165,21 @@ export default function PMsPage() {
                       <span className="text-3xl">{pm.emoji}</span>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="font-bold text-white group-hover:text-cyan-400 transition">{pm.name}</h2>
-                          <span className="text-xs text-[#8b949e]">#{idx + 1}</span>
+                          <h2 className="font-bold text-white group-hover:text-cyan-400 transition">
+                            {pm.name}
+                          </h2>
+                          <span className="text-xs text-[#8b949e]">
+                            #{idx + 1}
+                          </span>
                         </div>
-                        <p className="text-xs text-[#8b949e]">{STRATEGY_TAGS[pm.strategy] ?? ""} {pm.strategy}</p>
+                        <p className="text-xs text-[#8b949e]">
+                          {STRATEGY_TAGS[pm.strategy] ?? ""} {pm.strategy}
+                        </p>
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded border ${providerColor}`}>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded border ${providerColor}`}
+                    >
                       {pm.llm_provider}
                     </span>
                   </div>
@@ -149,12 +187,23 @@ export default function PMsPage() {
                   {/* Stats */}
                   <div className="flex justify-between items-end">
                     <div>
-                      <p className="text-xs text-[#8b949e]">CAPITAL</p>
-                      <p className="font-mono text-white text-sm">${pm.current_capital.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                      <p className="text-xs text-[#8b949e]">{allocationPct.toFixed(1)}% of fund</p>
+                      <p className="text-xs text-[#8b949e]">
+                        {t("pms.capital")}
+                      </p>
+                      <p className="font-mono text-white text-sm">
+                        $
+                        {pm.current_capital.toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })}
+                      </p>
+                      <p className="text-xs text-[#8b949e]">
+                        {allocationPct.toFixed(1)}% {t("pms.of_fund")}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-[#8b949e]">ITD RETURN</p>
+                      <p className="text-xs text-[#8b949e]">
+                        {t("pms.itd_return")}
+                      </p>
                       <ReturnBadge value={pm.itd_return} />
                     </div>
                   </div>
@@ -163,7 +212,7 @@ export default function PMsPage() {
                   <MiniBar value={pm.itd_return} max={10} />
 
                   <div className="mt-3 text-xs text-[#8b949e] group-hover:text-cyan-400 transition">
-                    View details →
+                    {t("pms.view_details")}
                   </div>
                 </div>
               </Link>

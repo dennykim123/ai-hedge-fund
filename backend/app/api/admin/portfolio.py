@@ -77,7 +77,7 @@ async def get_trades(limit: int = 50, db: Session = Depends(get_db)):
                 "conviction": round(t.conviction_score, 3),
                 "reasoning": t.reasoning,
                 "sector": SYMBOL_SECTORS.get(t.symbol, "Other"),
-                "executed_at": t.executed_at.isoformat() if t.executed_at else None,
+                "executed_at": (t.executed_at.isoformat() + "Z") if t.executed_at else None,
             }
             for t in trades
         ]

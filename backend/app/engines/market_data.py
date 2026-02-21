@@ -55,7 +55,7 @@ def get_price_history(symbol: str, days: int = 60) -> Optional[pd.Series]:
         if hist.empty:
             return _mock_price_history(symbol, days)
         return hist["Close"]
-    except Exception:
+    except (ValueError, KeyError, TypeError, OSError):
         return _mock_price_history(symbol, days)
 
 
@@ -71,7 +71,7 @@ def get_current_price(symbol: str) -> float:
         if price and price > 0:
             return float(price)
         return _mock_current_price(symbol)
-    except Exception:
+    except (ValueError, KeyError, TypeError, OSError):
         return _mock_current_price(symbol)
 
 

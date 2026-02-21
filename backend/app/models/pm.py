@@ -12,6 +12,7 @@ class PM(Base):
     emoji: Mapped[str] = mapped_column(String(10))
     strategy: Mapped[str] = mapped_column(String(100))
     llm_provider: Mapped[str] = mapped_column(String(50))
+    broker_type: Mapped[str] = mapped_column(String(20), default="paper")  # paper | kis | bybit
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     initial_capital: Mapped[float] = mapped_column(Float, default=100_000.0)
     current_capital: Mapped[float] = mapped_column(Float, default=100_000.0)

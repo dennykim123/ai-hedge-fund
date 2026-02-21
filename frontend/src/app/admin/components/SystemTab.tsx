@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useI18n } from "@/lib/i18n";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface ServiceInfo {
   status: string;
@@ -42,11 +43,13 @@ const SERVICE_ICONS: Record<string, string> = {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     healthy: "bg-green-900/30 text-green-400 border border-green-500/30",
-    not_configured: "bg-yellow-900/30 text-yellow-400 border border-yellow-500/30",
+    not_configured:
+      "bg-yellow-900/30 text-yellow-400 border border-yellow-500/30",
     error: "bg-red-900/30 text-red-400 border border-red-500/30",
     degraded: "bg-orange-900/30 text-orange-400 border border-orange-500/30",
   };
-  const style = styles[status] ?? "bg-gray-800 text-[#8b949e] border border-[#30363d]";
+  const style =
+    styles[status] ?? "bg-gray-800 text-[#8b949e] border border-[#30363d]";
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${style}`}>
       {status.replace(/_/g, " ")}
@@ -62,24 +65,42 @@ function UpDot({ status }: { status: string }) {
         ? "bg-yellow-400"
         : "bg-red-400";
   return (
-    <span className={`inline-block w-2 h-2 rounded-full ${color} animate-pulse`} />
+    <span
+      className={`inline-block w-2 h-2 rounded-full ${color} animate-pulse`}
+    />
   );
 }
 
 export function SystemTab() {
+  const { t } = useI18n();
   const [system, setSystem] = useState<SystemData | null>(null);
   const [pipeline, setPipeline] = useState<PipelineStats | null>(null);
-  const [socialFreshness, setSocialFreshness] = useState<Record<string, SocialFreshnessItem> | null>(null);
+  const [socialFreshness, setSocialFreshness] = useState<Record<
+    string,
+    SocialFreshnessItem
+  > | null>(null);
   const [soq, setSoq] = useState<SOQStatus | null>(null);
   const [runningCycle, setRunningCycle] = useState(false);
   const [cycleMsg, setCycleMsg] = useState<string | null>(null);
 
   const fetchAll = useCallback(() => {
     Promise.all([
-      fetch(`${BASE_URL}/api/fund/system/overview`).then((r) => r.json()).then(setSystem).catch(() => {}),
-      fetch(`${BASE_URL}/api/fund/order-pipeline/stats`).then((r) => r.json()).then(setPipeline).catch(() => {}),
-      fetch(`${BASE_URL}/api/fund/social/freshness`).then((r) => r.json()).then(setSocialFreshness).catch(() => {}),
-      fetch(`${BASE_URL}/api/fund/soq/status`).then((r) => r.json()).then(setSoq).catch(() => {}),
+      fetch(`${BASE_URL}/api/fund/system/overview`)
+        .then((r) => r.json())
+        .then(setSystem)
+        .catch(() => {}),
+      fetch(`${BASE_URL}/api/fund/order-pipeline/stats`)
+        .then((r) => r.json())
+        .then(setPipeline)
+        .catch(() => {}),
+      fetch(`${BASE_URL}/api/fund/social/freshness`)
+        .then((r) => r.json())
+        .then(setSocialFreshness)
+        .catch(() => {}),
+      fetch(`${BASE_URL}/api/fund/soq/status`)
+        .then((r) => r.json())
+        .then(setSoq)
+        .catch(() => {}),
     ]);
   }, []);
 
@@ -99,19 +120,23 @@ export function SystemTab() {
       const data = await res.json();
       const trades =
         data.results?.filter(
-          (r: { action?: string }) => r?.action === "BUY" || r?.action === "SELL",
+          (r: { action?: string }) =>
+            r?.action === "BUY" || r?.action === "SELL",
         ).length ?? 0;
-      setCycleMsg(`✅ Cycle complete — ${trades} trades executed`);
+      setCycleMsg(
+        `✅ ${t("sys.cycle_complete")} — ${trades} ${t("sys.trades_exec")}`,
+      );
       fetchAll();
     } catch {
-      setCycleMsg("❌ Error running trading cycle");
+      setCycleMsg(`❌ ${t("sys.error_cycle")}`);
     } finally {
       setRunningCycle(false);
     }
   };
 
   const healthyCount = system
-    ? Object.values(system.services).filter((s) => s.status === "healthy").length
+    ? Object.values(system.services).filter((s) => s.status === "healthy")
+        .length
     : 0;
   const totalCount = system ? Object.values(system.services).length : 0;
 
@@ -120,9 +145,9 @@ export function SystemTab() {
       {/* System Health Overview */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-white">System Status</h2>
+          <h2 className="text-lg font-bold text-white">{t("sys.status")}</h2>
           <p className="text-xs text-[#8b949e] mt-0.5">
-            {healthyCount}/{totalCount} services healthy
+            {healthyCount}/{totalCount} {t("sys.healthy")}
           </p>
         </div>
         <div className="flex gap-3 items-center">
@@ -131,7 +156,9 @@ export function SystemTab() {
             disabled={runningCycle}
             className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold rounded-lg text-sm transition"
           >
-            {runningCycle ? "⏳ Running..." : "▶ Run Trading Cycle"}
+            {runningCycle
+              ? `⏳ ${t("sys.running")}`
+              : `▶ ${t("sys.run_cycle")}`}
           </button>
         </div>
       </div>
@@ -143,16 +170,16 @@ export function SystemTab() {
 
       {/* Services Grid */}
       <div className="glass-card p-5">
-        <p className="text-xs text-[#8b949e] tracking-widest mb-4">SERVICE STATUS</p>
+        <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+          {t("sys.service")}
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {system &&
             Object.entries(system.services).map(([name, info]) => (
               <div key={name} className="bg-[#1c2128] p-4 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
                   <UpDot status={info.status} />
-                  <span className="text-lg">
-                    {SERVICE_ICONS[name] ?? "⚙️"}
-                  </span>
+                  <span className="text-lg">{SERVICE_ICONS[name] ?? "⚙️"}</span>
                   <span className="text-xs text-[#8b949e] uppercase tracking-wide flex-1">
                     {name.replace(/_/g, " ")}
                   </span>
@@ -170,13 +197,18 @@ export function SystemTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Pipeline Stats */}
         <div className="glass-card p-5">
-          <p className="text-xs text-[#8b949e] tracking-widest mb-4">ORDER PIPELINE</p>
+          <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+            {t("sys.pipeline")}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {pipeline &&
               Object.entries(pipeline).map(([key, value]) => {
                 const isActive = key === "pending" || key === "executing";
                 return (
-                  <div key={key} className="bg-[#1c2128] p-4 rounded-lg text-center">
+                  <div
+                    key={key}
+                    className="bg-[#1c2128] p-4 rounded-lg text-center"
+                  >
                     <p
                       className={`text-2xl font-mono font-bold ${
                         isActive && value > 0 ? "text-cyan-400" : "text-white"
@@ -195,26 +227,28 @@ export function SystemTab() {
           {/* SOQ Stats */}
           {soq && (
             <div className="mt-4 pt-4 border-t border-[#30363d]">
-              <p className="text-xs text-[#8b949e] tracking-widest mb-3">SOQ METRICS</p>
+              <p className="text-xs text-[#8b949e] tracking-widest mb-3">
+                {t("sys.soq")}
+              </p>
               <div className="grid grid-cols-3 gap-2">
                 <div className="text-center">
                   <p className="text-lg font-mono font-bold text-white">
                     {soq.queue_depth}
                   </p>
-                  <p className="text-xs text-[#8b949e]">Queue</p>
+                  <p className="text-xs text-[#8b949e]">{t("sys.queue")}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-mono font-bold text-white">
                     {soq.avg_latency_ms}
                     <span className="text-xs ml-0.5">ms</span>
                   </p>
-                  <p className="text-xs text-[#8b949e]">Latency</p>
+                  <p className="text-xs text-[#8b949e]">{t("sys.latency")}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-mono font-bold text-cyan-400">
                     {soq.orders_today}
                   </p>
-                  <p className="text-xs text-[#8b949e]">Today</p>
+                  <p className="text-xs text-[#8b949e]">{t("sys.today")}</p>
                 </div>
               </div>
             </div>
@@ -223,32 +257,38 @@ export function SystemTab() {
 
         {/* Social Signal Freshness */}
         <div className="glass-card p-5">
-          <p className="text-xs text-[#8b949e] tracking-widest mb-4">SIGNAL FRESHNESS</p>
+          <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+            {t("sys.freshness")}
+          </p>
           <div className="space-y-3">
             {/* Signal freshness from system */}
             {system?.signal_freshness &&
-              Object.entries(system.signal_freshness).map(([signal, timestamp]) => (
-                <div
-                  key={signal}
-                  className="flex items-center justify-between bg-[#1c2128] px-4 py-3 rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <UpDot status={timestamp ? "healthy" : "not_configured"} />
-                    <p className="text-sm font-medium capitalize">{signal}</p>
+              Object.entries(system.signal_freshness).map(
+                ([signal, timestamp]) => (
+                  <div
+                    key={signal}
+                    className="flex items-center justify-between bg-[#1c2128] px-4 py-3 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <UpDot
+                        status={timestamp ? "healthy" : "not_configured"}
+                      />
+                      <p className="text-sm font-medium capitalize">{signal}</p>
+                    </div>
+                    <p className="text-xs text-[#8b949e]">
+                      {timestamp
+                        ? new Date(timestamp).toLocaleTimeString()
+                        : t("sys.no_data")}
+                    </p>
                   </div>
-                  <p className="text-xs text-[#8b949e]">
-                    {timestamp
-                      ? new Date(timestamp).toLocaleTimeString()
-                      : "No data"}
-                  </p>
-                </div>
-              ))}
+                ),
+              )}
 
             {/* Social freshness detail */}
             {socialFreshness && (
               <div className="pt-3 border-t border-[#30363d]">
                 <p className="text-xs text-[#8b949e] tracking-widest mb-3">
-                  SOCIAL DATA SOURCES
+                  {t("sys.social_sources")}
                 </p>
                 {Object.entries(socialFreshness).map(([source, info]) => (
                   <div
@@ -265,7 +305,9 @@ export function SystemTab() {
                   </div>
                 ))}
                 <p className="text-xs text-[#8b949e] mt-2">
-                  Configure API keys in <code className="bg-[#1c2128] px-1 rounded">.env</code> to enable real social data
+                  {t("sys.configure_api")}{" "}
+                  <code className="bg-[#1c2128] px-1 rounded">.env</code>{" "}
+                  {t("sys.to_enable")}
                 </p>
               </div>
             )}
@@ -275,7 +317,9 @@ export function SystemTab() {
 
       {/* Environment Info */}
       <div className="glass-card p-5">
-        <p className="text-xs text-[#8b949e] tracking-widest mb-4">ENVIRONMENT</p>
+        <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+          {t("sys.env")}
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           {[
             { label: "BACKEND", value: "FastAPI v0.2.0" },

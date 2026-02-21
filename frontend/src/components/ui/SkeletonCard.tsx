@@ -1,3 +1,5 @@
+const SKELETON_WIDTHS = [85, 72, 90, 78, 95, 68, 82, 74, 88, 76];
+
 export function SkeletonCard({ rows = 3 }: { rows?: number }) {
   return (
     <div className="glass-card p-5 space-y-3">
@@ -6,7 +8,7 @@ export function SkeletonCard({ rows = 3 }: { rows?: number }) {
         <div
           key={i}
           className="skeleton h-3"
-          style={{ width: `${70 + Math.random() * 30}%` }}
+          style={{ width: `${SKELETON_WIDTHS[i % SKELETON_WIDTHS.length]}%` }}
         />
       ))}
     </div>

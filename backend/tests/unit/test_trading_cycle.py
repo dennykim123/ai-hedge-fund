@@ -223,24 +223,25 @@ class TestExecuteSell:
 
 class TestUpdatePmCapital:
     def test_capital_remains_non_negative(self, db, pm):
-        _update_pm_capital(pm, db, 100.0, "SPY", 10_000.0, "BUY")
-        assert pm.current_capital >= 0.0
+        new_capital = _update_pm_capital(pm, db)
+        assert new_capital >= 0.0
 
-    def test_capital_changes(self, db, pm):
-        original = pm.current_capital
-        _update_pm_capital(pm, db, 100.0, "SPY", 10_000.0, "SELL")
-        # 랜덤 변동이므로 달라질 수 있음 (단, 양수 보장)
-        assert pm.current_capital >= 0.0
+    def test_capital_with_position(self, db, pm):
+        # 포지션 있으면 현재가 기준 평가액으로 재계산
+        pos = Position(pm_id=pm.id, symbol="SPY", quantity=10.0, avg_cost=480.0)
+        db.add(pos)
+        db.commit()
+        new_capital = _update_pm_capital(pm, db)
+        assert new_capital >= 0.0
 
     def test_with_multiple_positions_different_symbols(self, db, pm):
-        # 186-187 라인: 다른 심볼 포지션 재계산 경로
         pos1 = Position(pm_id=pm.id, symbol="SPY", quantity=5.0, avg_cost=480.0)
         pos2 = Position(pm_id=pm.id, symbol="AAPL", quantity=3.0, avg_cost=175.0)
         db.add(pos1)
         db.add(pos2)
         db.commit()
-        _update_pm_capital(pm, db, 480.0, "SPY", 5000.0, "SELL")
-        assert pm.current_capital >= 0.0
+        new_capital = _update_pm_capital(pm, db)
+        assert new_capital >= 0.0
 
 
 class TestSeedNavHistoryNoPms:
@@ -264,7 +265,7 @@ class TestRunPmCycleMocked:
     async def test_error_handling_on_exception(self, db, pm):
         # 라인 112-114: 예외 발생 시 error 반환
         from app.engines.trading_cycle import run_pm_cycle
-        with patch("app.engines.trading_cycle.get_price_history", side_effect=Exception("db error")):
+        with patch("app.engines.trading_cycle.get_price_history", side_effect=ValueError("db error")):
             result = await run_pm_cycle(pm, db)
             assert result["status"] == "error"
 

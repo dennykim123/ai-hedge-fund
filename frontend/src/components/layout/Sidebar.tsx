@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Eye,
@@ -14,23 +14,35 @@ import {
   ChevronLeft,
   TrendingUp,
   FlaskConical,
+  Compass,
+  Globe,
 } from "lucide-react";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 
-const NAV_ITEMS = [
-  { href: "/", icon: TrendingUp, label: "Home" },
-  { href: "/overview", icon: Eye, label: "Overview" },
-  { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/pms", icon: Bot, label: "AI PMs" },
-  { href: "/backtest", icon: FlaskConical, label: "Backtest" },
-  { href: "/admin?tab=portfolio", icon: Briefcase, label: "Portfolio" },
-  { href: "/admin?tab=risk", icon: Shield, label: "Risk" },
-  { href: "/admin?tab=analytics", icon: BarChart2, label: "Analytics" },
-  { href: "/admin?tab=system", icon: Settings, label: "System" },
+const NAV_ITEMS: {
+  href: string;
+  icon: typeof TrendingUp;
+  labelKey: TranslationKey;
+  dividerAfter?: boolean;
+}[] = [
+  { href: "/", icon: TrendingUp, labelKey: "nav.home" },
+  { href: "/overview", icon: Eye, labelKey: "nav.overview" },
+  { href: "/admin", icon: LayoutDashboard, labelKey: "nav.dashboard" },
+  { href: "/admin?tab=strategic", icon: Compass, labelKey: "nav.strategic" },
+  { href: "/pms", icon: Bot, labelKey: "nav.pms" },
+  { href: "/admin?tab=portfolio", icon: Briefcase, labelKey: "nav.portfolio" },
+  { href: "/admin?tab=risk", icon: Shield, labelKey: "nav.risk" },
+  { href: "/admin?tab=analytics", icon: BarChart2, labelKey: "nav.analytics", dividerAfter: true },
+  { href: "/backtest", icon: FlaskConical, labelKey: "nav.backtest" },
+  { href: "/admin?tab=system", icon: Settings, labelKey: "nav.system" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab");
   const [collapsed, setCollapsed] = useState(false);
+  const { locale, setLocale, t } = useI18n();
 
   return (
     <aside
@@ -45,39 +57,67 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-          const basePath = href.split("?")[0];
-          const active =
-            pathname === href ||
-            (href !== "/" && !href.includes("?") && pathname?.startsWith(basePath));
+        {NAV_ITEMS.map(({ href, icon: Icon, labelKey, dividerAfter }) => {
+          const isTabLink = href.includes("?tab=");
+          const tabValue = isTabLink
+            ? new URLSearchParams(href.split("?")[1]).get("tab")
+            : null;
+
+          const active = isTabLink
+            ? pathname === "/admin" && currentTab === tabValue
+            : href === "/"
+              ? pathname === "/"
+              : href === "/admin"
+                ? pathname === "/admin" && !currentTab
+                : pathname?.startsWith(href.split("?")[0]);
+
           return (
-            <Link
-              key={href + label}
-              href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm
-                          ${
-                            active
-                              ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                              : "text-[#8b949e] hover:text-white hover:bg-[#1c2128]"
-                          }`}
-            >
-              <Icon size={18} className="shrink-0" />
-              {!collapsed && <span>{label}</span>}
-            </Link>
+            <div key={href + labelKey}>
+              <Link
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm
+                            ${
+                              active
+                                ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                                : "text-[#8b949e] hover:text-white hover:bg-[#1c2128]"
+                            }`}
+              >
+                <Icon size={18} className="shrink-0" />
+                {!collapsed && <span>{t(labelKey)}</span>}
+              </Link>
+              {dividerAfter && (
+                <div className="my-2 border-t border-[#30363d] mx-3" />
+              )}
+            </div>
           );
         })}
       </nav>
 
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center p-4 border-t border-[#30363d]
-                   text-[#8b949e] hover:text-white transition"
-      >
-        <ChevronLeft
-          size={18}
-          className={`transition-transform ${collapsed ? "rotate-180" : ""}`}
-        />
-      </button>
+      {/* Language Toggle + Collapse */}
+      <div className="border-t border-[#30363d]">
+        <button
+          onClick={() => setLocale(locale === "ko" ? "en" : "ko")}
+          className="flex items-center gap-3 w-full px-4 py-3
+                     text-[#8b949e] hover:text-white transition text-sm"
+        >
+          <Globe size={16} className="shrink-0" />
+          {!collapsed && (
+            <span className="font-mono text-xs">
+              {locale === "ko" ? "EN" : "한국어"}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center justify-center w-full p-4 border-t border-[#30363d]
+                     text-[#8b949e] hover:text-white transition"
+        >
+          <ChevronLeft
+            size={18}
+            className={`transition-transform ${collapsed ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
     </aside>
   );
 }

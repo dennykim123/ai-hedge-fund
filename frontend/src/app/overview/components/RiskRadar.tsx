@@ -7,6 +7,7 @@ import {
   PolarAngleAxis,
   ResponsiveContainer,
 } from "recharts";
+import { useI18n } from "@/lib/i18n";
 
 interface Props {
   grossExposure: number;
@@ -23,12 +24,14 @@ export function RiskRadar({
   concentration,
   volatility,
 }: Props) {
+  const { t } = useI18n();
+
   const data = [
-    { subject: "Gross Exp", value: Math.min(100, grossExposure / 3), fullMark: 100 },
-    { subject: "Net Exp", value: Math.min(100, netExposure), fullMark: 100 },
-    { subject: "Margin", value: Math.min(100, marginUtil), fullMark: 100 },
-    { subject: "Concentration", value: Math.min(100, concentration), fullMark: 100 },
-    { subject: "Volatility", value: Math.min(100, volatility), fullMark: 100 },
+    { subject: t("ov.gross_exp"), value: Math.min(100, grossExposure / 3), fullMark: 100 },
+    { subject: t("ov.net_exp"), value: Math.min(100, netExposure), fullMark: 100 },
+    { subject: t("ov.margin"), value: Math.min(100, marginUtil), fullMark: 100 },
+    { subject: t("ov.concentration"), value: Math.min(100, concentration), fullMark: 100 },
+    { subject: t("ov.volatility"), value: Math.min(100, volatility), fullMark: 100 },
   ];
 
   const maxRisk = Math.max(...data.map((d) => d.value));
@@ -37,7 +40,7 @@ export function RiskRadar({
 
   return (
     <div className="glass-card p-5">
-      <p className="text-xs text-[#8b949e] tracking-widest mb-2">RISK RADAR</p>
+      <p className="text-xs text-[#8b949e] tracking-widest mb-2">{t("ov.risk_radar")}</p>
       <ResponsiveContainer width="100%" height={160}>
         <RadarChart data={data}>
           <PolarGrid stroke="#30363d" />

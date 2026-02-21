@@ -55,7 +55,7 @@ class TestFetchRedditMentionsWithPraw:
     def test_praw_exception_returns_mock_with_error(self):
         mock_reddit = MagicMock()
         mock_praw = MagicMock()
-        mock_praw.Reddit.side_effect = Exception("Auth error")
+        mock_praw.Reddit.side_effect = ConnectionError("Auth error")
 
         import app.engines.social as social_mod
         old_flag = social_mod.PRAW_AVAILABLE
@@ -166,7 +166,7 @@ class TestFetchGoogleTrendsWithPytrends:
 
     def test_pytrends_exception_returns_error(self):
         mock_instance = MagicMock()
-        mock_instance.interest_over_time.side_effect = Exception("Rate limit")
+        mock_instance.interest_over_time.side_effect = ConnectionError("Rate limit")
 
         engine, social_mod, old_flag, old_trendreq = self._engine_with_pytrends(mock_instance)
         try:

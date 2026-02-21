@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import {
   LineChart,
   Line,
@@ -13,7 +14,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface BacktestResult {
   symbol: string;
@@ -163,6 +164,7 @@ function runLocalBacktest(
 }
 
 export default function BacktestPage() {
+  const { t } = useI18n();
   const [symbol, setSymbol] = useState("SPY");
   const [strategy, setStrategy] = useState("rsi_momentum");
   const [period, setPeriod] = useState("90d");
@@ -216,20 +218,20 @@ export default function BacktestPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Backtesting Engine</h1>
-        <p className="text-[#8b949e] text-sm mt-1">
-          Test quantitative strategies on historical data before live deployment
-        </p>
+        <h1 className="text-2xl font-bold text-white">{t("bt.title")}</h1>
+        <p className="text-[#8b949e] text-sm mt-1">{t("bt.subtitle")}</p>
       </div>
 
       {/* Config Panel */}
       <div className="glass-card p-5">
         <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-          BACKTEST CONFIGURATION
+          {t("bt.config")}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-[#8b949e] block mb-2">SYMBOL</label>
+            <label className="text-xs text-[#8b949e] block mb-2">
+              {t("bt.symbol")}
+            </label>
             <select
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
@@ -244,7 +246,7 @@ export default function BacktestPage() {
           </div>
           <div>
             <label className="text-xs text-[#8b949e] block mb-2">
-              STRATEGY
+              {t("bt.strategy")}
             </label>
             <select
               value={strategy}
@@ -259,7 +261,9 @@ export default function BacktestPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-[#8b949e] block mb-2">PERIOD</label>
+            <label className="text-xs text-[#8b949e] block mb-2">
+              {t("bt.period")}
+            </label>
             <div className="flex gap-2">
               {PERIODS.map((p) => (
                 <button
@@ -300,10 +304,10 @@ export default function BacktestPage() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                   />
                 </svg>
-                Running...
+                {t("bt.running")}
               </>
             ) : (
-              "▶ Run Backtest"
+              t("bt.run")
             )}
           </button>
           <p className="text-xs text-[#8b949e]">
@@ -325,9 +329,7 @@ export default function BacktestPage() {
                 <p
                   className={`font-bold ${beatsBenchmark ? "text-[#00d4aa]" : "text-yellow-400"}`}
                 >
-                  {beatsBenchmark
-                    ? "Strategy outperforms benchmark!"
-                    : "Strategy underperforms benchmark"}
+                  {beatsBenchmark ? t("bt.outperforms") : t("bt.underperforms")}
                 </p>
                 <p className="text-sm text-[#8b949e]">
                   {result.symbol} | {strategyLabel} | {period} period
@@ -340,7 +342,9 @@ export default function BacktestPage() {
                   {result.total_return_pct >= 0 ? "+" : ""}
                   {result.total_return_pct.toFixed(2)}%
                 </p>
-                <p className="text-xs text-[#8b949e]">Total Return</p>
+                <p className="text-xs text-[#8b949e]">
+                  {t("bt.total_return_label")}
+                </p>
               </div>
             </div>
           </div>
@@ -348,13 +352,13 @@ export default function BacktestPage() {
           {/* Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <MetricCard
-              label="TOTAL RETURN"
+              label={t("bt.total_return")}
               value={result.total_return_pct}
               color={isGood ? "text-[#00d4aa]" : "text-[#ff6b6b]"}
               suffix="%"
             />
             <MetricCard
-              label="SHARPE RATIO"
+              label={t("bt.sharpe")}
               value={result.sharpe_ratio}
               color={
                 result.sharpe_ratio > 1.5
@@ -365,14 +369,14 @@ export default function BacktestPage() {
               }
             />
             <MetricCard
-              label="SORTINO"
+              label={t("bt.sortino")}
               value={result.sortino_ratio}
               color={
                 result.sortino_ratio > 2 ? "text-[#00d4aa]" : "text-yellow-400"
               }
             />
             <MetricCard
-              label="MAX DRAWDOWN"
+              label={t("bt.max_dd")}
               value={-result.max_drawdown_pct}
               color={
                 result.max_drawdown_pct < 10
@@ -384,14 +388,14 @@ export default function BacktestPage() {
               suffix="%"
             />
             <MetricCard
-              label="CALMAR RATIO"
+              label={t("bt.calmar")}
               value={result.calmar_ratio}
               color={
                 result.calmar_ratio > 1 ? "text-[#00d4aa]" : "text-yellow-400"
               }
             />
             <MetricCard
-              label="WIN RATE"
+              label={t("bt.win_rate")}
               value={result.win_rate_pct}
               color={
                 result.win_rate_pct > 55 ? "text-[#00d4aa]" : "text-yellow-400"
@@ -404,10 +408,10 @@ export default function BacktestPage() {
           <div className="glass-card p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs text-[#8b949e] tracking-widest">
-                EQUITY CURVE
+                {t("bt.equity_curve")}
               </p>
               <p className="text-xs text-[#8b949e]">
-                {result.total_trades} signal periods analyzed
+                {result.total_trades} {t("bt.signals_analyzed")}
               </p>
             </div>
             <ResponsiveContainer width="100%" height={300}>
@@ -470,39 +474,39 @@ export default function BacktestPage() {
           {/* Strategy Notes */}
           <div className="glass-card p-5">
             <p className="text-xs text-[#8b949e] tracking-widest mb-3">
-              STRATEGY NOTES
+              {t("bt.strategy_notes")}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-[#8b949e]">
               <div>
                 <p className="text-white font-medium mb-1">
-                  Sharpe Target: {">"}1.5
+                  {t("bt.sharpe_target")} {">"}1.5
                 </p>
                 <p>
                   Current: {result.sharpe_ratio.toFixed(2)} —{" "}
                   {result.sharpe_ratio >= 1.5
-                    ? "✅ Target met"
-                    : "❌ Below target"}
+                    ? "✅ " + t("bt.target_met")
+                    : "❌ " + t("bt.below_target")}
                 </p>
               </div>
               <div>
                 <p className="text-white font-medium mb-1">
-                  Max DD Target: {"<"}15%
+                  {t("bt.dd_target")} {"<"}15%
                 </p>
                 <p>
                   Current: {result.max_drawdown_pct.toFixed(2)}% —{" "}
                   {result.max_drawdown_pct <= 15
-                    ? "✅ Within limits"
-                    : "❌ Exceeds limit"}
+                    ? "✅ " + t("bt.within_limits")
+                    : "❌ " + t("bt.exceeds_limit")}
                 </p>
               </div>
               <div>
                 <p className="text-white font-medium mb-1">
-                  Alpha Target: {">"} S&P500
+                  {t("bt.alpha_target")} {">"} S&P500
                 </p>
                 <p>
                   {beatsBenchmark
-                    ? "✅ Outperforming benchmark"
-                    : "❌ Underperforming"}
+                    ? "✅ " + t("bt.outperforming")
+                    : "❌ " + t("bt.underperforming")}
                 </p>
               </div>
             </div>
@@ -513,10 +517,8 @@ export default function BacktestPage() {
       {!result && !running && (
         <div className="text-center py-20 text-[#8b949e]">
           <p className="text-6xl mb-4">📊</p>
-          <p className="text-lg">Configure your backtest above and click Run</p>
-          <p className="text-sm mt-2">
-            Test any strategy against historical market data
-          </p>
+          <p className="text-lg">{t("bt.empty_title")}</p>
+          <p className="text-sm mt-2">{t("bt.empty_subtitle")}</p>
         </div>
       )}
     </div>

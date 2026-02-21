@@ -8,18 +8,28 @@ router = APIRouter(prefix="/api/fund", tags=["admin-system"])
 
 @router.get("/system/overview")
 async def get_system_overview(db: Session = Depends(get_db)):
+    from app.core.scheduler import get_status
+    from app.models.signal import Signal
+    from app.models.trade import Trade
+
+    scheduler = get_status()
+    last_signal = db.query(Signal).order_by(Signal.id.desc()).first()
+    last_trade = db.query(Trade).order_by(Trade.id.desc()).first()
+
     return {
         "services": {
             "backend": {"status": "healthy", "uptime": "running"},
             "database": {"status": "healthy"},
-            "market_data": {"status": "not_configured"},
-            "llm_providers": {"status": "not_configured"},
+            "market_data": {"status": "active"},
+            "llm_providers": {"status": "rule_based_fallback"},
+            "scheduler": scheduler,
         },
         "signal_freshness": {
-            "quant": None,
+            "quant": (last_signal.created_at.isoformat() + "Z") if last_signal else None,
             "social": None,
             "llm": None,
         },
+        "last_trade_at": (last_trade.executed_at.isoformat() + "Z") if last_trade else None,
     }
 
 
@@ -56,7 +66,7 @@ async def get_recent_executions(limit: int = 20, db: Session = Depends(get_db)):
                 "action": t.action,
                 "quantity": t.quantity,
                 "price": t.price,
-                "executed_at": t.executed_at.isoformat() if t.executed_at else None,
+                "executed_at": (t.executed_at.isoformat() + "Z") if t.executed_at else None,
             }
             for t in trades
         ]

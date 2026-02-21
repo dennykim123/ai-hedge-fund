@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import { FlashNumber } from "@/components/ui/FlashNumber";
 import { RadialGauge } from "@/components/ui/RadialGauge";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 import {
   AreaChart,
   Area,
@@ -16,7 +17,7 @@ import {
   ReferenceLine,
 } from "recharts";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface PMDetail {
   id: string;
@@ -72,32 +73,22 @@ const PROVIDER_STYLES: Record<string, { bg: string; text: string }> = {
   deepseek: { bg: "bg-cyan-500/20", text: "text-cyan-400" },
 };
 
-const PM_DESCRIPTIONS: Record<string, string> = {
-  atlas:
-    "Macro regime specialist that reads interest rate cycles, VIX patterns, and currency trends to position the fund ahead of broad market shifts.",
-  council:
-    "Multi-persona consensus engine combining value, growth, and macro perspectives. Requires alignment across all three before executing.",
-  drflow:
-    "Options flow analyst tracking unusual open interest and volume to detect informed money movements before price action confirms.",
-  insider:
-    "Smart money tracker following SEC Form 4 filings and 13F reports to mirror institutional positioning with a 30-day lag edge.",
-  maxpayne:
-    "Contrarian extremist. Fades panic, buys blood. Uses Fear & Greed Index and put/call ratios to identify capitulation points.",
-  satoshi:
-    "Crypto-native PM analyzing on-chain metrics, DeFi flows, and cross-asset correlation to navigate digital asset cycles.",
-  quantking:
-    "Pure mechanical system with zero discretion. Executes RSI, MACD, Bollinger Band signals at scale with strict position sizing.",
-  asiatiger:
-    "Asia Pacific specialist capturing regime differences across Nikkei, Hang Seng, and KOSPI with time-zone arbitrage advantages.",
-  momentum:
-    "52-week trend follower. Buys the strongest, shorts the weakest. Never fights the tape.",
-  sentinel:
-    "Risk manager first, trader second. Maintains constant hedge book. Activates full defensive posture when fund MDD approaches 15%.",
-  voxpopuli:
-    "Social tipping point detector. Monitors Reddit WSB, Google Trends, and news velocity for Z-score 3σ+ breakouts before they trend.",
+const PM_DESC_KEYS: Record<string, TranslationKey> = {
+  atlas: "pm.desc_atlas",
+  council: "pm.desc_council",
+  drflow: "pm.desc_drflow",
+  insider: "pm.desc_insider",
+  maxpayne: "pm.desc_maxpayne",
+  satoshi: "pm.desc_satoshi",
+  quantking: "pm.desc_quantking",
+  asiatiger: "pm.desc_asiatiger",
+  momentum: "pm.desc_momentum",
+  sentinel: "pm.desc_sentinel",
+  voxpopuli: "pm.desc_voxpopuli",
 };
 
 export default function PMDetailPage() {
+  const { t } = useI18n();
   const params = useParams();
   const id = params.id as string;
   const [pm, setPM] = useState<PMDetail | null>(null);
@@ -176,10 +167,12 @@ export default function PMDetailPage() {
     return (
       <div className="text-center py-20 text-[#8b949e]">
         <p className="text-6xl mb-4">🔍</p>
-        <h1 className="text-2xl font-bold text-white mb-2">PM Not Found</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">
+          {t("pm.not_found")}
+        </h1>
         <p className="mb-6">No portfolio manager with ID &quot;{id}&quot;</p>
         <Link href="/pms" className="text-cyan-400 hover:underline">
-          ← Back to PMs
+          {t("pm.back_to_pms")}
         </Link>
       </div>
     );
@@ -209,7 +202,7 @@ export default function PMDetailPage() {
           href="/pms"
           className="text-[#8b949e] hover:text-white transition text-sm"
         >
-          ← All PMs
+          {t("pm.all_pms")}
         </Link>
       </div>
 
@@ -229,7 +222,7 @@ export default function PMDetailPage() {
               </div>
               <p className="text-[#8b949e] mt-1">{pm.strategy}</p>
               <p className="text-sm text-[#8b949e] mt-3 max-w-xl leading-relaxed">
-                {PM_DESCRIPTIONS[pm.id] ?? "Specialized AI portfolio manager."}
+                {t(PM_DESC_KEYS[pm.id] ?? "pm.default_desc")}
               </p>
             </div>
           </div>
@@ -239,7 +232,7 @@ export default function PMDetailPage() {
               disabled={runningCycle}
               className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold rounded-lg text-sm transition"
             >
-              {runningCycle ? "Running..." : "▶ Run Cycle"}
+              {runningCycle ? t("pm.running") : t("pm.run_cycle")}
             </button>
             {cycleResult && (
               <p className="text-xs text-[#8b949e] text-right max-w-40">
@@ -254,26 +247,26 @@ export default function PMDetailPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "CAPITAL",
+            label: t("pm.capital"),
             value: pm.current_capital,
             fmt: (v: number) =>
               `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
             color: "text-cyan-400",
           },
           {
-            label: "ITD RETURN",
+            label: t("pm.itd_return"),
             value: pm.itd_return,
             fmt: (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`,
             color: returnColor(pm.itd_return),
           },
           {
-            label: "POSITIONS",
+            label: t("pm.positions"),
             value: pm.position_count,
             fmt: String,
             color: "text-blue-400",
           },
           {
-            label: "SIGNALS",
+            label: t("pm.signals"),
             value: signals.length,
             fmt: String,
             color: "text-yellow-400",
@@ -294,7 +287,7 @@ export default function PMDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 glass-card p-5">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            CAPITAL PERFORMANCE (30D SIMULATION)
+            {t("pm.cap_perf")}
           </p>
           <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={navChartData}>
@@ -319,7 +312,7 @@ export default function PMDetailPage() {
                   borderRadius: 8,
                 }}
                 formatter={(v: number | undefined) =>
-                  [`$${(v ?? 0).toLocaleString()}`, "Capital"] as [
+                  [`$${(v ?? 0).toLocaleString()}`, t("pm.capital")] as [
                     string,
                     string,
                   ]
@@ -344,15 +337,15 @@ export default function PMDetailPage() {
 
         <div className="glass-card p-5 flex flex-col items-center justify-center">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            CONVICTION SCORE
+            {t("pm.conviction")}
           </p>
           <RadialGauge value={convictionScore} max={1} label="Latest Signal" />
           <p className="text-xs text-[#8b949e] mt-2">
             {convictionScore > 0.7
-              ? "High conviction"
+              ? t("pm.high_conv")
               : convictionScore > 0.4
-                ? "Moderate"
-                : "Low / HOLD"}
+                ? t("pm.moderate_conv")
+                : t("pm.low_conv")}
           </p>
         </div>
       </div>
@@ -361,11 +354,11 @@ export default function PMDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="glass-card p-5">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            OPEN POSITIONS
+            {t("pm.open_positions")}
           </p>
           {pm.positions.length === 0 ? (
             <div className="text-center py-8 text-[#8b949e] text-sm">
-              No open positions
+              {t("pm.no_positions")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -404,13 +397,13 @@ export default function PMDetailPage() {
 
         <div className="glass-card p-5">
           <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-            RECENT SIGNALS
+            {t("pm.recent_signals")}
           </p>
           {signals.length === 0 ? (
             <div className="text-center py-8 text-[#8b949e] text-sm">
-              No signals yet.
+              {t("pm.no_signals")}
               <br />
-              Click &quot;Run Cycle&quot; to generate.
+              {t("pm.run_to_generate")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -453,23 +446,23 @@ export default function PMDetailPage() {
       {/* Recent Trades */}
       <div className="glass-card p-5">
         <p className="text-xs text-[#8b949e] tracking-widest mb-4">
-          RECENT TRADES
+          {t("pm.recent_trades")}
         </p>
         {trades.length === 0 ? (
           <div className="text-center py-8 text-[#8b949e] text-sm">
-            No trades executed yet
+            {t("pm.no_trades")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[#8b949e] text-xs border-b border-[#30363d]">
-                  <th className="text-left py-2">SYMBOL</th>
-                  <th className="text-left py-2">ACTION</th>
-                  <th className="text-right py-2">QTY</th>
-                  <th className="text-right py-2">PRICE</th>
-                  <th className="text-right py-2">VALUE</th>
-                  <th className="text-right py-2">CONVICTION</th>
+                  <th className="text-left py-2">{t("pm.th_symbol")}</th>
+                  <th className="text-left py-2">{t("pm.th_action")}</th>
+                  <th className="text-right py-2">{t("pm.th_qty")}</th>
+                  <th className="text-right py-2">{t("pm.th_price")}</th>
+                  <th className="text-right py-2">{t("pm.th_value")}</th>
+                  <th className="text-right py-2">{t("pm.th_conviction")}</th>
                 </tr>
               </thead>
               <tbody>
