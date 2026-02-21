@@ -84,14 +84,13 @@ async def get_social_freshness(db: Session = Depends(get_db)):
 
 @router.post("/reset")
 async def reset_fund(db: Session = Depends(get_db)):
-    """모든 거래 데이터를 삭제하고 PM 자본을 초기화합니다."""
+    """모든 거래 데이터를 삭제하고 PM 자본을 초기화합니다. NAV 히스토리도 비웁니다."""
     from app.models.signal import Signal
     from app.models.trade import Trade
     from app.models.position import Position
     from app.models.nav_history import NAVHistory
     from app.models.pm import PM
     from app.db.seed import seed_pms
-    from app.engines.trading_cycle import seed_nav_history
 
     db.query(Signal).delete()
     db.query(Trade).delete()
@@ -101,6 +100,11 @@ async def reset_fund(db: Session = Depends(get_db)):
     db.commit()
 
     seed_pms(db)
-    seed_nav_history(db)
 
-    return {"status": "ok", "message": "Fund reset complete. All data cleared and re-seeded."}
+    # 초기 NAV 한 건만 기록 (시뮬레이션 데이터 없이)
+    pms = db.query(PM).all()
+    initial_nav = sum(pm.current_capital for pm in pms)
+    db.add(NAVHistory(nav=initial_nav, daily_return=0.0))
+    db.commit()
+
+    return {"status": "ok", "message": "Fund reset complete. Clean start with zero history."}

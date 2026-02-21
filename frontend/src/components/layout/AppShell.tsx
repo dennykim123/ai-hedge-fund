@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "../ui/CommandPalette";
 import { I18nProvider } from "@/lib/i18n";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLanding = pathname === "/";
 
@@ -19,5 +20,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="ml-56 p-6 min-h-screen">{children}</main>
       <CommandPalette />
     </I18nProvider>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <AppShellInner>{children}</AppShellInner>
+    </Suspense>
   );
 }
