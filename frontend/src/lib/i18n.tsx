@@ -467,6 +467,103 @@ const translations = {
   "stats.itd_return": { en: "ITD RETURN", ko: "개시이래 수익률" },
   "stats.active_pms": { en: "ACTIVE PMs", ko: "활성 PM" },
   "stats.positions": { en: "POSITIONS", ko: "포지션" },
+
+  // Home — Crypto CTA
+  "home.crypto_cta": {
+    en: "Crypto Investing \u2192",
+    ko: "\uCF54\uC778\uD22C\uC790\uB4E4\uC5B4\uAC00\uAE30 \u2192",
+  },
+
+  // Crypto Section
+  "crypto.title": { en: "Crypto Investment", ko: "\uCF54\uC778 \uD22C\uC790" },
+  "crypto.nav_dashboard": { en: "Dashboard", ko: "\uB300\uC2DC\uBCF4\uB4DC" },
+  "crypto.nav_trade": { en: "Trade", ko: "\uD2B8\uB808\uC774\uB4DC" },
+  "crypto.nav_portfolio": {
+    en: "Portfolio",
+    ko: "\uD3EC\uD2B8\uD3F4\uB9AC\uC624",
+  },
+  "crypto.back_home": { en: "\u2190 Home", ko: "\u2190 \uD648" },
+
+  "crypto.dashboard_title": {
+    en: "Crypto Dashboard",
+    ko: "\uCF54\uC778 \uB300\uC2DC\uBCF4\uB4DC",
+  },
+  "crypto.dashboard_subtitle": {
+    en: "Real-time crypto prices and market sentiment",
+    ko: "\uC2E4\uC2DC\uAC04 \uC554\uD638\uD654\uD3D0 \uAC00\uACA9 \uBC0F \uC2DC\uC7A5 \uC2EC\uB9AC",
+  },
+  "crypto.capital": { en: "CAPITAL", ko: "\uC790\uBCF8" },
+  "crypto.itd_return": {
+    en: "ITD RETURN",
+    ko: "\uAC1C\uC2DC\uC774\uB798 \uC218\uC775\uB960",
+  },
+  "crypto.fear_greed": {
+    en: "FEAR & GREED INDEX",
+    ko: "\uACF5\uD3EC\uD0D0\uC695 \uC9C0\uC218",
+  },
+
+  "crypto.trade_title": {
+    en: "Crypto Trade",
+    ko: "\uCF54\uC778 \uD2B8\uB808\uC774\uB4DC",
+  },
+  "crypto.trade_subtitle": {
+    en: "Run Satoshi PM trading cycle on crypto assets",
+    ko: "Satoshi PM\uC758 \uC554\uD638\uD654\uD3D0 \uD2B8\uB808\uC774\uB529 \uC0AC\uC774\uD074 \uC2E4\uD589",
+  },
+  "crypto.run_cycle": {
+    en: "QUICK TRADE",
+    ko: "\uBE60\uB978 \uD2B8\uB808\uC774\uB4DC",
+  },
+  "crypto.run_satoshi": {
+    en: "\u25B6 Run Satoshi Cycle",
+    ko: "\u25B6 Satoshi \uC0AC\uC774\uD074 \uC2E4\uD589",
+  },
+  "crypto.running": { en: "Running...", ko: "\uC2E4\uD589 \uC911..." },
+  "crypto.signal_feed": {
+    en: "SIGNAL FEED",
+    ko: "\uC2DC\uADF8\uB110 \uD53C\uB4DC",
+  },
+  "crypto.no_signals": {
+    en: "No signals yet. Run a cycle.",
+    ko: "\uC2DC\uADF8\uB110 \uC5C6\uC74C. \uC0AC\uC774\uD074\uC744 \uC2E4\uD589\uD558\uC138\uC694.",
+  },
+  "crypto.recent_trades": {
+    en: "RECENT TRADES",
+    ko: "\uCD5C\uADFC \uAC70\uB798",
+  },
+  "crypto.no_trades": { en: "No trades yet", ko: "\uAC70\uB798 \uC5C6\uC74C" },
+
+  "crypto.portfolio_title": {
+    en: "Crypto Portfolio",
+    ko: "\uCF54\uC778 \uD3EC\uD2B8\uD3F4\uB9AC\uC624",
+  },
+  "crypto.portfolio_subtitle": {
+    en: "Satoshi PM holdings and trade history",
+    ko: "Satoshi PM \uBCF4\uC720 \uD604\uD669 \uBC0F \uAC70\uB798 \uB0B4\uC5ED",
+  },
+  "crypto.holdings_value": {
+    en: "HOLDINGS VALUE",
+    ko: "\uBCF4\uC720 \uAC00\uCE58",
+  },
+  "crypto.positions_count": { en: "POSITIONS", ko: "\uD3EC\uC9C0\uC158" },
+  "crypto.holdings": { en: "HOLDINGS", ko: "\uBCF4\uC720 \uD604\uD669" },
+  "crypto.no_positions": {
+    en: "No crypto positions. Run a trading cycle.",
+    ko: "\uD3EC\uC9C0\uC158 \uC5C6\uC74C. \uD2B8\uB808\uC774\uB529 \uC0AC\uC774\uD074\uC744 \uC2E4\uD589\uD558\uC138\uC694.",
+  },
+  "crypto.trade_history": {
+    en: "TRADE HISTORY",
+    ko: "\uAC70\uB798 \uB0B4\uC5ED",
+  },
+  "crypto.th_symbol": { en: "SYMBOL", ko: "\uC885\uBAA9" },
+  "crypto.th_quantity": { en: "QTY", ko: "\uC218\uB7C9" },
+  "crypto.th_avg_cost": { en: "AVG COST", ko: "\uD3C9\uADE0 \uB2E8\uAC00" },
+  "crypto.th_value": { en: "VALUE", ko: "\uAE08\uC561" },
+  "crypto.th_allocation": { en: "ALLOCATION", ko: "\uBE44\uC911" },
+  "crypto.th_time": { en: "TIME", ko: "\uC2DC\uAC04" },
+  "crypto.th_action": { en: "ACTION", ko: "\uB9E4\uB9E4" },
+  "crypto.th_price": { en: "PRICE", ko: "\uAC00\uACA9" },
+  "crypto.th_conviction": { en: "CONVICTION", ko: "\uD655\uC2E0\uB3C4" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

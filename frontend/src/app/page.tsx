@@ -13,15 +13,35 @@ const FEATURE_KEYS: Array<{
   titleKey: TranslationKey;
   descKey: TranslationKey;
 }> = [
-  { emoji: "\uD83E\uDDE0", titleKey: "home.feat1_title", descKey: "home.feat1_desc" },
-  { emoji: "\uD83D\uDCE1", titleKey: "home.feat2_title", descKey: "home.feat2_desc" },
-  { emoji: "\uD83D\uDCF1", titleKey: "home.feat3_title", descKey: "home.feat3_desc" },
-  { emoji: "\uD83D\uDEE1\uFE0F", titleKey: "home.feat4_title", descKey: "home.feat4_desc" },
+  {
+    emoji: "\uD83E\uDDE0",
+    titleKey: "home.feat1_title",
+    descKey: "home.feat1_desc",
+  },
+  {
+    emoji: "\uD83D\uDCE1",
+    titleKey: "home.feat2_title",
+    descKey: "home.feat2_desc",
+  },
+  {
+    emoji: "\uD83D\uDCF1",
+    titleKey: "home.feat3_title",
+    descKey: "home.feat3_desc",
+  },
+  {
+    emoji: "\uD83D\uDEE1\uFE0F",
+    titleKey: "home.feat4_title",
+    descKey: "home.feat4_desc",
+  },
 ];
 
 const PMS = [
   { emoji: "\uD83C\uDF0D", name: "Atlas", strategy: "Macro Regime" },
-  { emoji: "\uD83C\uDFDB\uFE0F", name: "The Council", strategy: "Multi-Persona" },
+  {
+    emoji: "\uD83C\uDFDB\uFE0F",
+    name: "The Council",
+    strategy: "Multi-Persona",
+  },
   { emoji: "\uD83D\uDD2C", name: "Dr. Flow", strategy: "Event-Driven" },
   { emoji: "\uD83D\uDD75\uFE0F", name: "Insider", strategy: "Smart Money" },
   { emoji: "\uD83D\uDC80", name: "Max Payne", strategy: "Contrarian" },
@@ -56,11 +76,17 @@ export default function Home() {
     <main className="min-h-screen bg-gray-950 text-white">
       {/* Hero */}
       <section className="flex flex-col items-center justify-center px-4 py-24 text-center">
-        <h1 className="text-6xl font-bold text-cyan-400 mb-4">{t("home.title")}</h1>
-        <p className="text-xl text-gray-400 mb-10">
-          {t("home.subtitle")}
-        </p>
-        <div className="flex gap-4">
+        <h1 className="text-6xl font-bold text-cyan-400 mb-4">
+          {t("home.title")}
+        </h1>
+        <p className="text-xl text-gray-400 mb-10">{t("home.subtitle")}</p>
+        <div className="flex gap-4 flex-wrap justify-center">
+          <Link
+            href="/crypto"
+            className="px-8 py-3 bg-[#f7931a] hover:bg-[#e8860f] text-black font-bold rounded-lg transition text-lg"
+          >
+            {t("home.crypto_cta")}
+          </Link>
           <Link
             href="/admin"
             className="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg transition"

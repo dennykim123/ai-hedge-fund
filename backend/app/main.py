@@ -12,6 +12,7 @@ from app.api.admin.risk import router as admin_risk_router
 from app.api.admin.analytics import router as admin_analytics_router
 from app.api.admin.system import router as admin_system_router
 from app.api.trading import router as trading_router
+from app.api.crypto import router as crypto_router
 from app.config import settings
 from app.db.base import Base, engine, get_db
 from app.core.scheduler import start_scheduler, stop_scheduler
@@ -58,6 +59,7 @@ app.include_router(admin_risk_router)
 app.include_router(admin_analytics_router)
 app.include_router(admin_system_router)
 app.include_router(trading_router)
+app.include_router(crypto_router)
 
 
 @app.get("/health")

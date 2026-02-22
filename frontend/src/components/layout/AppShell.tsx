@@ -3,15 +3,26 @@
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { CryptoSidebar } from "./CryptoSidebar";
 import { CommandPalette } from "../ui/CommandPalette";
 import { I18nProvider } from "@/lib/i18n";
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLanding = pathname === "/";
+  const isCrypto = pathname?.startsWith("/crypto");
 
   if (isLanding) {
     return <I18nProvider>{children}</I18nProvider>;
+  }
+
+  if (isCrypto) {
+    return (
+      <I18nProvider>
+        <CryptoSidebar />
+        <main className="ml-56 p-6 min-h-screen bg-gray-950">{children}</main>
+      </I18nProvider>
+    );
   }
 
   return (
