@@ -26,6 +26,16 @@ interface SOQStatus {
   orders_today: number;
 }
 
+interface BrokerInfo {
+  pm_id: string;
+  name: string;
+  emoji: string;
+  broker_type: string;
+  broker_class: string;
+  is_live: boolean;
+  is_active: boolean;
+}
+
 interface PipelineStats {
   pending: number;
   executing: number;
@@ -80,8 +90,10 @@ export function SystemTab() {
     SocialFreshnessItem
   > | null>(null);
   const [soq, setSoq] = useState<SOQStatus | null>(null);
+  const [brokers, setBrokers] = useState<BrokerInfo[]>([]);
   const [runningCycle, setRunningCycle] = useState(false);
   const [cycleMsg, setCycleMsg] = useState<string | null>(null);
+  const [killSwitchLoading, setKillSwitchLoading] = useState(false);
 
   const fetchAll = useCallback(() => {
     Promise.all([
@@ -100,6 +112,10 @@ export function SystemTab() {
       fetch(`${BASE_URL}/api/fund/soq/status`)
         .then((r) => r.json())
         .then(setSoq)
+        .catch(() => {}),
+      fetch(`${BASE_URL}/api/fund/broker/status`)
+        .then((r) => r.json())
+        .then((d) => setBrokers(d.brokers ?? []))
         .catch(() => {}),
     ]);
   }, []);
@@ -133,6 +149,26 @@ export function SystemTab() {
       setRunningCycle(false);
     }
   };
+
+  const handleKillSwitch = async () => {
+    if (!confirm("Are you sure? This will stop ALL trading immediately."))
+      return;
+    setKillSwitchLoading(true);
+    try {
+      const allActive = brokers.every((b) => b.is_active);
+      const endpoint = allActive ? "kill-switch" : "resume";
+      await fetch(`${BASE_URL}/api/fund/broker/${endpoint}`, {
+        method: "POST",
+      });
+      fetchAll();
+    } catch {
+      // ignore
+    } finally {
+      setKillSwitchLoading(false);
+    }
+  };
+
+  const allActive = brokers.length > 0 && brokers.every((b) => b.is_active);
 
   const healthyCount = system
     ? Object.values(system.services).filter((s) => s.status === "healthy")
@@ -314,6 +350,69 @@ export function SystemTab() {
           </div>
         </div>
       </div>
+
+      {/* Broker Status */}
+      {brokers.length > 0 && (
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-[#8b949e] tracking-widest">
+              BROKER STATUS
+            </p>
+            <button
+              onClick={handleKillSwitch}
+              disabled={killSwitchLoading}
+              className={`px-4 py-1.5 font-bold rounded-lg text-sm transition ${
+                allActive
+                  ? "bg-red-600 hover:bg-red-500 text-white"
+                  : "bg-green-600 hover:bg-green-500 text-white"
+              } disabled:opacity-50`}
+            >
+              {killSwitchLoading
+                ? "..."
+                : allActive
+                  ? "KILL SWITCH"
+                  : "RESUME ALL"}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {brokers.map((b) => (
+              <div key={b.pm_id} className="bg-[#1c2128] p-3 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">{b.emoji}</span>
+                  <span className="text-sm font-medium text-white truncate">
+                    {b.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      b.is_live
+                        ? "bg-red-900/30 text-red-400 border border-red-500/30"
+                        : b.broker_class === "PaperAdapter"
+                          ? "bg-gray-800 text-[#8b949e] border border-[#30363d]"
+                          : "bg-yellow-900/30 text-yellow-400 border border-yellow-500/30"
+                    }`}
+                  >
+                    {b.is_live
+                      ? "LIVE"
+                      : b.broker_class === "PaperAdapter"
+                        ? "paper"
+                        : "testnet"}
+                  </span>
+                  <span className="text-xs text-[#8b949e]">
+                    {b.broker_type}
+                  </span>
+                  {!b.is_active && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-500/30">
+                      STOPPED
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Environment Info */}
       <div className="glass-card p-5">

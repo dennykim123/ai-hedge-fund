@@ -108,3 +108,46 @@ async def reset_fund(db: Session = Depends(get_db)):
     db.commit()
 
     return {"status": "ok", "message": "Fund reset complete. Clean start with zero history."}
+
+
+@router.get("/broker/status")
+async def get_broker_status(db: Session = Depends(get_db)):
+    """각 PM의 브로커 상태 조회"""
+    from app.models.pm import PM
+    from app.engines.broker import get_broker_for_pm
+
+    pms = db.query(PM).all()
+    statuses = []
+    for pm in pms:
+        broker = get_broker_for_pm(pm.broker_type)
+        statuses.append({
+            "pm_id": pm.id,
+            "name": pm.name,
+            "emoji": pm.emoji,
+            "broker_type": pm.broker_type,
+            "broker_class": type(broker).__name__,
+            "is_live": broker.is_live(),
+            "is_active": pm.is_active,
+        })
+
+    return {"brokers": statuses}
+
+
+@router.post("/broker/kill-switch")
+async def kill_switch(db: Session = Depends(get_db)):
+    """긴급 정지: 모든 PM 비활성화"""
+    from app.models.pm import PM
+
+    db.query(PM).update({"is_active": False})
+    db.commit()
+    return {"status": "ok", "message": "All PMs deactivated. Trading halted."}
+
+
+@router.post("/broker/resume")
+async def resume_trading(db: Session = Depends(get_db)):
+    """거래 재개: 모든 PM 활성화"""
+    from app.models.pm import PM
+
+    db.query(PM).update({"is_active": True})
+    db.commit()
+    return {"status": "ok", "message": "All PMs reactivated. Trading resumed."}

@@ -111,10 +111,21 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
         # 8. 브로커 주문 실행 (KIS / Bybit / Paper 자동 라우팅)
         if action in ("BUY", "SELL") and conviction >= settings.min_conviction:
             from app.engines.broker import get_broker_for_pm
+            from app.engines.risk_guard import check_risk
             broker = get_broker_for_pm(getattr(pm, "broker_type", "paper"))
 
             trade_amount = pm.current_capital * position_size
             quantity = trade_amount / current_price
+
+            # 리스크 체크 (실거래 브로커일 때만 엄격하게)
+            if broker.is_live():
+                allowed, risk_reason = check_risk(pm, action, trade_amount, db)
+                if not allowed:
+                    logger.warning("RISK BLOCKED %s %s %s: %s", pm.id, action, symbol, risk_reason)
+                    result["risk_blocked"] = True
+                    result["risk_reason"] = risk_reason
+                    db.commit()
+                    return result
 
             if action == "BUY":
                 result.update(await _execute_buy(pm, symbol, quantity, current_price, db, broker))

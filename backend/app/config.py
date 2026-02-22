@@ -39,5 +39,9 @@ class Settings(BaseSettings):
     scheduler_interval: int = 300          # 트레이딩 사이클 주기 (초)
     min_conviction: float = 0.4            # 최소 확신도 (이하 거래 안함)
 
+    # Risk management
+    max_daily_loss_pct: float = 0.05       # 일일 최대 손실률 (5%)
+    max_consecutive_losses: int = 5        # 연속 손실 허용 횟수
+
 
 settings = Settings()

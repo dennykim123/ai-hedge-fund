@@ -392,6 +392,17 @@ class BybitAdapter(BrokerAdapter):
             }
 
         order_info = data.get("result", {})
+        order_id = order_info.get("orderId", "")
+
+        # 실제 체결 가격 조회
+        filled_price = None
+        if order_id:
+            try:
+                filled_price = await self._get_fill_price(order_id, bybit_symbol)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Fill price query failed: %s", e)
+
         return {
             "status": "filled",
             "broker": "bybit",
@@ -399,10 +410,40 @@ class BybitAdapter(BrokerAdapter):
             "bybit_symbol": bybit_symbol,
             "qty": qty,
             "side": side,
-            "order_id": order_info.get("orderId", ""),
+            "order_id": order_id,
             "filled_qty": qty,
-            "filled_avg_price": None,
+            "filled_avg_price": filled_price,
         }
+
+    async def _get_fill_price(self, order_id: str, bybit_symbol: str) -> float | None:
+        """주문 체결 가격 조회 (v5/order/realtime)"""
+        import httpx, time
+
+        params = f"category=spot&orderId={order_id}"
+        timestamp = str(int(time.time() * 1000))
+        headers = {
+            "X-BAPI-API-KEY": self._api_key,
+            "X-BAPI-TIMESTAMP": timestamp,
+            "X-BAPI-SIGN": self._sign(params, timestamp),
+            "X-BAPI-RECV-WINDOW": "5000",
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(
+                f"{self._base_url}/v5/order/realtime",
+                headers=headers,
+                params={"category": "spot", "orderId": order_id},
+            )
+            r.raise_for_status()
+            data = r.json()
+
+        orders = data.get("result", {}).get("list", [])
+        if orders:
+            avg_price = orders[0].get("avgPrice", "0")
+            price = float(avg_price) if avg_price else None
+            if price and price > 0:
+                return price
+        return None
 
     async def get_positions(self) -> list[dict]:
         """현물 잔고 조회"""
