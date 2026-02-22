@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.base import get_db
 
 router = APIRouter(prefix="/api/fund", tags=["admin-system"])
@@ -130,7 +131,22 @@ async def get_broker_status(db: Session = Depends(get_db)):
             "is_active": pm.is_active,
         })
 
-    return {"brokers": statuses}
+    return {
+        "brokers": statuses,
+        "bybit_testnet": settings.bybit_testnet,
+    }
+
+
+@router.post("/broker/toggle-live")
+async def toggle_live_mode():
+    """Bybit 테스트넷 ↔ 실거래 전환 (런타임 토글, 재시작 시 .env로 리셋)"""
+    settings.bybit_testnet = not settings.bybit_testnet
+    mode = "testnet" if settings.bybit_testnet else "LIVE"
+    return {
+        "status": "ok",
+        "bybit_testnet": settings.bybit_testnet,
+        "message": f"Bybit mode switched to {mode}",
+    }
 
 
 @router.post("/broker/kill-switch")

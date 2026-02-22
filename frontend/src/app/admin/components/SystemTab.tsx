@@ -94,6 +94,8 @@ export function SystemTab() {
   const [runningCycle, setRunningCycle] = useState(false);
   const [cycleMsg, setCycleMsg] = useState<string | null>(null);
   const [killSwitchLoading, setKillSwitchLoading] = useState(false);
+  const [bybitTestnet, setBybitTestnet] = useState(true);
+  const [toggleLiveLoading, setToggleLiveLoading] = useState(false);
 
   const fetchAll = useCallback(() => {
     Promise.all([
@@ -115,7 +117,10 @@ export function SystemTab() {
         .catch(() => {}),
       fetch(`${BASE_URL}/api/fund/broker/status`)
         .then((r) => r.json())
-        .then((d) => setBrokers(d.brokers ?? []))
+        .then((d) => {
+          setBrokers(d.brokers ?? []);
+          if (d.bybit_testnet !== undefined) setBybitTestnet(d.bybit_testnet);
+        })
         .catch(() => {}),
     ]);
   }, []);
@@ -165,6 +170,33 @@ export function SystemTab() {
       // ignore
     } finally {
       setKillSwitchLoading(false);
+    }
+  };
+
+  const handleToggleLive = async () => {
+    if (bybitTestnet) {
+      // testnet → LIVE: 이중 확인 필요
+      const first = confirm(
+        "WARNING: This will switch Bybit to LIVE trading with REAL money.\n\nAre you sure?",
+      );
+      if (!first) return;
+      const second = confirm(
+        "FINAL CONFIRMATION: Real funds will be used for trading.\n\nClick OK to enable LIVE mode.",
+      );
+      if (!second) return;
+    }
+    setToggleLiveLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/fund/broker/toggle-live`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.bybit_testnet !== undefined) setBybitTestnet(data.bybit_testnet);
+      fetchAll();
+    } catch {
+      // ignore
+    } finally {
+      setToggleLiveLoading(false);
     }
   };
 
@@ -355,24 +387,52 @@ export function SystemTab() {
       {brokers.length > 0 && (
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-[#8b949e] tracking-widest">
-              BROKER STATUS
-            </p>
-            <button
-              onClick={handleKillSwitch}
-              disabled={killSwitchLoading}
-              className={`px-4 py-1.5 font-bold rounded-lg text-sm transition ${
-                allActive
-                  ? "bg-red-600 hover:bg-red-500 text-white"
-                  : "bg-green-600 hover:bg-green-500 text-white"
-              } disabled:opacity-50`}
-            >
-              {killSwitchLoading
-                ? "..."
-                : allActive
-                  ? "KILL SWITCH"
-                  : "RESUME ALL"}
-            </button>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-[#8b949e] tracking-widest">
+                BROKER STATUS
+              </p>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  bybitTestnet
+                    ? "bg-yellow-900/30 text-yellow-400 border border-yellow-500/30"
+                    : "bg-red-900/40 text-red-300 border border-red-500/50 animate-pulse"
+                }`}
+              >
+                {bybitTestnet ? "TESTNET" : "LIVE"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleToggleLive}
+                disabled={toggleLiveLoading}
+                className={`px-3 py-1.5 font-bold rounded-lg text-xs transition ${
+                  bybitTestnet
+                    ? "bg-orange-600 hover:bg-orange-500 text-white"
+                    : "bg-yellow-600 hover:bg-yellow-500 text-black"
+                } disabled:opacity-50`}
+              >
+                {toggleLiveLoading
+                  ? "..."
+                  : bybitTestnet
+                    ? "SWITCH TO LIVE"
+                    : "SWITCH TO TESTNET"}
+              </button>
+              <button
+                onClick={handleKillSwitch}
+                disabled={killSwitchLoading}
+                className={`px-4 py-1.5 font-bold rounded-lg text-sm transition ${
+                  allActive
+                    ? "bg-red-600 hover:bg-red-500 text-white"
+                    : "bg-green-600 hover:bg-green-500 text-white"
+                } disabled:opacity-50`}
+              >
+                {killSwitchLoading
+                  ? "..."
+                  : allActive
+                    ? "KILL SWITCH"
+                    : "RESUME ALL"}
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {brokers.map((b) => (
