@@ -1,24 +1,29 @@
 """
-소셜 시그널 엔진: Reddit PRAW, NewsAPI, Google Trends 기반 티핑포인트 감지
+소셜 시그널 엔진: Yahoo Finance 뉴스, Fear & Greed Index, Google Trends 기반 티핑포인트 감지
 """
 
+import logging
 import numpy as np
 import random
 from dataclasses import dataclass
 from datetime import datetime
 
+import httpx
+
 # 선택적 의존성
 try:
-    import praw  # pragma: no cover
-    PRAW_AVAILABLE = True  # pragma: no cover
+    import yfinance as yf  # pragma: no cover
+    YFINANCE_AVAILABLE = True  # pragma: no cover
 except ImportError:
-    PRAW_AVAILABLE = False
+    YFINANCE_AVAILABLE = False
 
 try:
     from pytrends.request import TrendReq  # pragma: no cover
     PYTRENDS_AVAILABLE = True  # pragma: no cover
 except ImportError:
     PYTRENDS_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -86,59 +91,75 @@ class SocialEngine:
             return 0.0
         return (bull_score - bear_score) / total
 
-    def fetch_reddit_mentions(
-        self,
-        symbol: str,
-        subreddits: list[str] | None = None,
-        limit: int = 100,
-        reddit_client_id: str = "",
-        reddit_secret: str = "",
-    ) -> dict:
-        """Reddit에서 특정 심볼 언급 수와 감성 분석"""
-        if not PRAW_AVAILABLE or not reddit_client_id:
-            return self._mock_reddit(symbol)
+    def fetch_yahoo_news(self, symbol: str) -> dict:
+        """Yahoo Finance 뉴스 헤드라인 기반 감성 분석 (API 키 불필요)"""
+        if not YFINANCE_AVAILABLE:
+            return self._mock_yahoo_news(symbol)
 
         try:
-            reddit = praw.Reddit(
-                client_id=reddit_client_id,
-                client_secret=reddit_secret,
-                user_agent="AI-HedgeFund/1.0",
-            )
-            subs = subreddits or ["wallstreetbets", "investing", "stocks"]
-            mention_count = 0
-            sentiment_sum = 0.0
+            ticker = yf.Ticker(symbol)
+            news = ticker.news or []
+            if not news:
+                return self._mock_yahoo_news(symbol)
 
-            for sub_name in subs:
-                subreddit = reddit.subreddit(sub_name)
-                for post in subreddit.hot(limit=limit):
-                    text = f"{post.title} {post.selftext}"
-                    if symbol.upper() in text.upper() or f"${symbol.upper()}" in text.upper():
-                        mention_count += 1
-                        sentiment_sum += self._simple_sentiment(text)
+            mention_count = len(news)
+            sentiment_sum = 0.0
+            for item in news:
+                title = item.get("title", "")
+                sentiment_sum += self._simple_sentiment(title)
 
             avg_sentiment = sentiment_sum / mention_count if mention_count > 0 else 0.0
             return {
                 "symbol": symbol,
                 "mention_count": mention_count,
                 "sentiment": round(avg_sentiment, 3),
-                "source": "reddit",
-                "subreddits": subs,
+                "source": "yahoo_finance",
                 "timestamp": datetime.now().isoformat(),
             }
-        except (ConnectionError, OSError, ValueError) as e:
-            return {**self._mock_reddit(symbol), "error": str(e)}
+        except (ConnectionError, OSError, ValueError, Exception) as e:
+            logger.warning("Yahoo Finance news error for %s: %s", symbol, e)
+            return {**self._mock_yahoo_news(symbol), "error": str(e)}
 
-    def _mock_reddit(self, symbol: str) -> dict:
-        """Reddit API 없을 때 Mock 데이터"""
+    def _mock_yahoo_news(self, symbol: str) -> dict:
+        """Yahoo Finance 뉴스 없을 때 Mock 데이터"""
         random.seed(hash(symbol + datetime.now().strftime("%H")))
-        count = random.randint(5, 150)
-        sentiment = random.uniform(-0.5, 0.8)
+        count = random.randint(3, 20)
+        sentiment = random.uniform(-0.4, 0.6)
         return {
             "symbol": symbol,
             "mention_count": count,
             "sentiment": round(sentiment, 3),
-            "source": "reddit_mock",
-            "subreddits": ["wallstreetbets", "investing"],
+            "source": "yahoo_mock",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def fetch_fear_greed_index(self) -> dict:
+        """CNN Fear & Greed Index (API 키 불필요)"""
+        try:
+            resp = httpx.get(
+                "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                fgi = data.get("fear_and_greed", {})
+                score = fgi.get("score", 50)
+                rating = fgi.get("rating", "Neutral")
+                return {
+                    "score": round(score, 1),
+                    "rating": rating,
+                    "source": "cnn_fear_greed",
+                    "timestamp": datetime.now().isoformat(),
+                }
+        except (httpx.HTTPError, KeyError, ValueError, Exception) as e:
+            logger.warning("Fear & Greed Index error: %s", e)
+
+        # Fallback
+        return {
+            "score": 50.0,
+            "rating": "Neutral",
+            "source": "fear_greed_mock",
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -192,27 +213,33 @@ class SocialEngine:
         target_symbols = symbols or ["GME", "AMC", "TSLA", "NVDA", "SPY", "BTC-USD"]
         results = []
 
+        # Fear & Greed Index (전체 시장 심리)
+        fgi = self.fetch_fear_greed_index()
+
         for symbol in target_symbols:
-            # Reddit 멘션 수집 (mock 포함)
-            reddit_data = self._mock_reddit(symbol)
+            # Yahoo Finance 뉴스 감성 분석
+            news_data = self.fetch_yahoo_news(symbol)
 
             # Google Trends (mock 포함)
             trends_data = self._mock_trends(symbol)
 
             # 히스토리 시뮬레이션 (실제는 DB에서 가져와야 함)
-            base = reddit_data["mention_count"]
+            base = news_data["mention_count"]
             history = [base * random.uniform(0.5, 1.5) for _ in range(6)] + [base]
 
             signal = self.evaluate_tipping_point(
                 symbol=symbol,
                 mention_history=history,
-                sentiment=reddit_data["sentiment"],
-                sources=["reddit", "google_trends"],
+                sentiment=news_data["sentiment"],
+                sources=["yahoo_finance", "google_trends", "fear_greed"],
             )
 
-            signal["reddit_mentions"] = reddit_data["mention_count"]
+            signal["news_mentions"] = news_data["mention_count"]
+            signal["news_sentiment"] = news_data["sentiment"]
             signal["trends_interest"] = trends_data["current_interest"]
             signal["trends_trending"] = trends_data["is_trending"]
+            signal["fear_greed_score"] = fgi["score"]
+            signal["fear_greed_rating"] = fgi["rating"]
             results.append(signal)
 
         # 티핑포인트 감지된 것 우선 정렬

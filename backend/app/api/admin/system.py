@@ -80,7 +80,16 @@ async def get_social_freshness(db: Session = Depends(get_db)):
     def _status(configured: bool) -> str:
         return "healthy" if configured else "not_configured"
 
-    reddit_ok = bool(settings.reddit_client_id and settings.reddit_client_secret)
+    # Yahoo Finance — yfinance 설치 여부만 확인 (API 키 불필요)
+    try:
+        import yfinance  # noqa: F401
+        yahoo_ok = True
+    except ImportError:
+        yahoo_ok = False
+
+    # Fear & Greed Index — httpx만 있으면 됨 (API 키 불필요)
+    fear_greed_ok = True
+
     news_ok = bool(settings.news_api_key)
 
     # pytrends는 API 키 불필요 — 라이브러리만 설치되면 됨
@@ -91,7 +100,8 @@ async def get_social_freshness(db: Session = Depends(get_db)):
         trends_ok = False
 
     return {
-        "reddit": {"status": _status(reddit_ok), "last_fetch": None},
+        "yahoo_finance": {"status": _status(yahoo_ok), "last_fetch": None},
+        "fear_greed": {"status": _status(fear_greed_ok), "last_fetch": None},
         "google_trends": {"status": _status(trends_ok), "last_fetch": None},
         "news_api": {"status": _status(news_ok), "last_fetch": None},
     }
