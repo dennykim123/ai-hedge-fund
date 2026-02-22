@@ -18,10 +18,11 @@ interface FearGreed {
   source: string;
 }
 
-interface SatoshiPM {
+interface CryptoAgent {
   id: string;
   name: string;
   emoji: string;
+  strategy: string;
   capital: number;
   itd_return: number;
   is_active: boolean;
@@ -46,11 +47,17 @@ function getFearGreedColor(score: number): string {
 }
 
 function getFearGreedLabel(score: number, rating: string): string {
-  return rating || (
-    score <= 25 ? "Extreme Fear" :
-    score <= 45 ? "Fear" :
-    score <= 55 ? "Neutral" :
-    score <= 75 ? "Greed" : "Extreme Greed"
+  return (
+    rating ||
+    (score <= 25
+      ? "Extreme Fear"
+      : score <= 45
+        ? "Fear"
+        : score <= 55
+          ? "Neutral"
+          : score <= 75
+            ? "Greed"
+            : "Extreme Greed")
   );
 }
 
@@ -58,23 +65,23 @@ export default function CryptoDashboard() {
   const { t } = useI18n();
   const [prices, setPrices] = useState<CryptoPrice[]>([]);
   const [fearGreed, setFearGreed] = useState<FearGreed | null>(null);
-  const [satoshi, setSatoshi] = useState<SatoshiPM | null>(null);
+  const [agents, setAgents] = useState<CryptoAgent[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = async () => {
     try {
-      const [priceRes, fgRes, portRes] = await Promise.all([
+      const [priceRes, fgRes, agentsRes] = await Promise.all([
         fetch(`${BASE_URL}/api/crypto/prices`),
         fetch(`${BASE_URL}/api/crypto/fear-greed`),
-        fetch(`${BASE_URL}/api/crypto/portfolio`),
+        fetch(`${BASE_URL}/api/crypto/agents`),
       ]);
       const priceData = await priceRes.json();
       const fgData = await fgRes.json();
-      const portData = await portRes.json();
+      const agentsData = await agentsRes.json();
 
       setPrices(priceData.prices || []);
       setFearGreed(fgData);
-      if (portData.pm) setSatoshi(portData.pm);
+      setAgents(agentsData.agents || []);
     } catch {
       // silent
     } finally {
@@ -100,30 +107,36 @@ export default function CryptoDashboard() {
         </p>
       </div>
 
-      {/* Satoshi PM Status Bar */}
-      {satoshi && (
-        <div className="bg-gray-900 border border-[#30363d] rounded-xl p-4 flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{satoshi.emoji}</span>
-            <div>
-              <span className="font-bold text-white text-sm">{satoshi.name}</span>
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded ${satoshi.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
-                {satoshi.is_active ? "ACTIVE" : "INACTIVE"}
-              </span>
-            </div>
-          </div>
-          <div className="border-l border-[#30363d] pl-6">
-            <span className="text-xs text-gray-500">{t("crypto.capital")}</span>
-            <span className="block text-white font-mono text-sm">
-              ${satoshi.capital.toLocaleString()}
-            </span>
-          </div>
-          <div className="border-l border-[#30363d] pl-6">
-            <span className="text-xs text-gray-500">{t("crypto.itd_return")}</span>
-            <span className={`block font-mono text-sm ${satoshi.itd_return >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {satoshi.itd_return >= 0 ? "+" : ""}{satoshi.itd_return.toFixed(2)}%
-            </span>
-          </div>
+      {/* Multi-Agent Summary Row */}
+      {agents.length > 0 && (
+        <div className="bg-gray-900 border border-[#30363d] rounded-xl p-4 flex items-center gap-4">
+          {[...agents]
+            .sort((a, b) => b.itd_return - a.itd_return)
+            .slice(0, 3)
+            .map((agent) => (
+              <div key={agent.id} className="flex items-center gap-2">
+                <span className="text-lg">{agent.emoji}</span>
+                <span className="text-sm text-white font-medium">
+                  {agent.name}
+                </span>
+                <span
+                  className={`text-xs font-mono px-2 py-0.5 rounded ${
+                    agent.itd_return >= 0
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}
+                >
+                  {agent.itd_return >= 0 ? "+" : ""}
+                  {agent.itd_return.toFixed(2)}%
+                </span>
+              </div>
+            ))}
+          <a
+            href="/crypto/agents"
+            className="ml-auto text-sm text-[#f7931a] hover:text-[#f7931a]/80 transition font-medium"
+          >
+            {t("crypto.view_agents")} &rarr;
+          </a>
         </div>
       )}
 
@@ -133,7 +146,10 @@ export default function CryptoDashboard() {
         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {loading
             ? Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="bg-gray-900 border border-[#30363d] rounded-xl p-4 animate-pulse h-24" />
+                <div
+                  key={i}
+                  className="bg-gray-900 border border-[#30363d] rounded-xl p-4 animate-pulse h-24"
+                />
               ))
             : prices.map((p) => (
                 <div
@@ -141,14 +157,25 @@ export default function CryptoDashboard() {
                   className="bg-gray-900 border border-[#30363d] rounded-xl p-4 hover:border-[#f7931a]/30 transition"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">{COIN_ICONS[p.coin] || p.coin[0]}</span>
-                    <span className="font-bold text-white text-sm">{p.coin}</span>
+                    <span className="text-lg">
+                      {COIN_ICONS[p.coin] || p.coin[0]}
+                    </span>
+                    <span className="font-bold text-white text-sm">
+                      {p.coin}
+                    </span>
                   </div>
                   <div className="font-mono text-lg text-white">
-                    ${p.price.toLocaleString(undefined, { minimumFractionDigits: p.price < 10 ? 4 : 2, maximumFractionDigits: p.price < 10 ? 4 : 2 })}
+                    $
+                    {p.price.toLocaleString(undefined, {
+                      minimumFractionDigits: p.price < 10 ? 4 : 2,
+                      maximumFractionDigits: p.price < 10 ? 4 : 2,
+                    })}
                   </div>
-                  <div className={`text-xs font-mono mt-1 ${p.change_24h >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {p.change_24h >= 0 ? "+" : ""}{p.change_24h.toFixed(2)}% 24h
+                  <div
+                    className={`text-xs font-mono mt-1 ${p.change_24h >= 0 ? "text-green-400" : "text-red-400"}`}
+                  >
+                    {p.change_24h >= 0 ? "+" : ""}
+                    {p.change_24h.toFixed(2)}% 24h
                   </div>
                 </div>
               ))}

@@ -5,7 +5,17 @@ import { useI18n } from "@/lib/i18n";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+interface PMInfo {
+  id: string;
+  name: string;
+  emoji: string;
+  capital: number;
+  initial_capital: number;
+  itd_return: number;
+}
+
 interface Position {
+  pm_id: string;
   symbol: string;
   quantity: number;
   avg_cost: number;
@@ -14,6 +24,7 @@ interface Position {
 
 interface Trade {
   id: number;
+  pm_id: string;
   symbol: string;
   action: string;
   quantity: number;
@@ -24,17 +35,19 @@ interface Trade {
   executed_at: string | null;
 }
 
-interface PMInfo {
-  capital: number;
-  initial_capital: number;
-  itd_return: number;
+interface PortfolioSummary {
+  total_capital: number;
+  total_positions: number;
+  avg_return: number;
 }
 
 export default function CryptoPortfolio() {
   const { t } = useI18n();
+  const [pms, setPms] = useState<PMInfo[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [pm, setPm] = useState<PMInfo | null>(null);
+  const [summary, setSummary] = useState<PortfolioSummary | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,9 +55,10 @@ export default function CryptoPortfolio() {
       try {
         const res = await fetch(`${BASE_URL}/api/crypto/portfolio`);
         const data = await res.json();
+        setPms(data.pms || []);
         setPositions(data.positions || []);
         setTrades(data.trades || []);
-        if (data.pm) setPm(data.pm);
+        if (data.summary) setSummary(data.summary);
       } catch {
         // silent
       } finally {
@@ -54,7 +68,33 @@ export default function CryptoPortfolio() {
     fetchData();
   }, []);
 
-  const totalValue = positions.reduce((sum, p) => sum + p.market_value, 0);
+  const selectedPm = selectedAgent !== "all"
+    ? pms.find((pm) => pm.id === selectedAgent) ?? null
+    : null;
+
+  const filteredPositions = selectedAgent === "all"
+    ? positions
+    : positions.filter((p) => p.pm_id === selectedAgent);
+
+  const filteredTrades = selectedAgent === "all"
+    ? trades
+    : trades.filter((t) => t.pm_id === selectedAgent);
+
+  const totalValue = filteredPositions.reduce((sum, p) => sum + p.market_value, 0);
+
+  const displayCapital = selectedAgent === "all"
+    ? summary?.total_capital ?? 0
+    : selectedPm?.capital ?? 0;
+
+  const displayReturn = selectedAgent === "all"
+    ? summary?.avg_return ?? 0
+    : selectedPm?.itd_return ?? 0;
+
+  const pmEmojiMap = new Map(pms.map((pm) => [pm.id, pm.emoji]));
+
+  const subtitleText = selectedPm
+    ? `${selectedPm.emoji} ${selectedPm.name}`
+    : t("crypto.portfolio_subtitle");
 
   return (
     <div className="space-y-6">
@@ -63,23 +103,50 @@ export default function CryptoPortfolio() {
           {t("crypto.portfolio_title")}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          {t("crypto.portfolio_subtitle")}
+          {subtitleText}
         </p>
       </div>
 
+      {/* Agent Filter Pills */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setSelectedAgent("all")}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+            selectedAgent === "all"
+              ? "bg-[#f7931a]/20 text-[#f7931a] border-[#f7931a]/40"
+              : "bg-gray-800 text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          {t("crypto.filter_all")}
+        </button>
+        {pms.map((pm) => (
+          <button
+            key={pm.id}
+            onClick={() => setSelectedAgent(pm.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              selectedAgent === pm.id
+                ? "bg-[#f7931a]/20 text-[#f7931a] border-[#f7931a]/40"
+                : "bg-gray-800 text-gray-400 hover:text-white border-transparent"
+            }`}
+          >
+            {pm.emoji} {pm.name}
+          </button>
+        ))}
+      </div>
+
       {/* Summary Cards */}
-      {pm && (
+      {(summary || selectedPm) && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-gray-900 border border-[#30363d] rounded-xl p-4">
             <span className="text-xs text-gray-500">{t("crypto.capital")}</span>
             <div className="text-lg font-mono text-white mt-1">
-              ${pm.capital.toLocaleString()}
+              ${displayCapital.toLocaleString()}
             </div>
           </div>
           <div className="bg-gray-900 border border-[#30363d] rounded-xl p-4">
             <span className="text-xs text-gray-500">{t("crypto.itd_return")}</span>
-            <div className={`text-lg font-mono mt-1 ${pm.itd_return >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {pm.itd_return >= 0 ? "+" : ""}{pm.itd_return.toFixed(2)}%
+            <div className={`text-lg font-mono mt-1 ${displayReturn >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {displayReturn >= 0 ? "+" : ""}{displayReturn.toFixed(2)}%
             </div>
           </div>
           <div className="bg-gray-900 border border-[#30363d] rounded-xl p-4">
@@ -91,7 +158,7 @@ export default function CryptoPortfolio() {
           <div className="bg-gray-900 border border-[#30363d] rounded-xl p-4">
             <span className="text-xs text-gray-500">{t("crypto.positions_count")}</span>
             <div className="text-lg font-mono text-white mt-1">
-              {positions.length}
+              {filteredPositions.length}
             </div>
           </div>
         </div>
@@ -108,7 +175,7 @@ export default function CryptoPortfolio() {
               <div key={i} className="h-12 bg-gray-800 rounded-lg" />
             ))}
           </div>
-        ) : positions.length === 0 ? (
+        ) : filteredPositions.length === 0 ? (
           <p className="text-gray-600 text-sm py-8 text-center">
             {t("crypto.no_positions")}
           </p>
@@ -125,8 +192,8 @@ export default function CryptoPortfolio() {
                 </tr>
               </thead>
               <tbody>
-                {positions.map((p) => (
-                  <tr key={p.symbol} className="border-b border-[#30363d]/50 hover:bg-gray-800/50">
+                {filteredPositions.map((p) => (
+                  <tr key={`${p.pm_id}-${p.symbol}`} className="border-b border-[#30363d]/50 hover:bg-gray-800/50">
                     <td className="py-2.5 px-3 font-bold text-white">{p.symbol}</td>
                     <td className="py-2.5 px-3 text-right font-mono text-gray-400">
                       {p.quantity.toFixed(6)}
@@ -163,7 +230,7 @@ export default function CryptoPortfolio() {
         <h2 className="text-sm tracking-widest text-gray-500 mb-3">
           {t("crypto.trade_history")}
         </h2>
-        {trades.length === 0 ? (
+        {filteredTrades.length === 0 ? (
           <p className="text-gray-600 text-sm py-8 text-center">
             {t("crypto.no_trades")}
           </p>
@@ -173,6 +240,7 @@ export default function CryptoPortfolio() {
               <thead>
                 <tr className="text-gray-500 text-xs border-b border-[#30363d]">
                   <th className="text-left py-2 px-3">{t("crypto.th_time")}</th>
+                  <th className="text-center py-2 px-3">{t("crypto.th_agent")}</th>
                   <th className="text-left py-2 px-3">{t("crypto.th_action")}</th>
                   <th className="text-left py-2 px-3">{t("crypto.th_symbol")}</th>
                   <th className="text-right py-2 px-3">{t("crypto.th_quantity")}</th>
@@ -182,12 +250,15 @@ export default function CryptoPortfolio() {
                 </tr>
               </thead>
               <tbody>
-                {trades.map((trade) => (
+                {filteredTrades.map((trade) => (
                   <tr key={trade.id} className="border-b border-[#30363d]/50 hover:bg-gray-800/50">
                     <td className="py-2.5 px-3 text-gray-500 text-xs font-mono">
                       {trade.executed_at
                         ? new Date(trade.executed_at).toLocaleDateString()
                         : "-"}
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-base">
+                      {pmEmojiMap.get(trade.pm_id) ?? ""}
                     </td>
                     <td className="py-2.5 px-3">
                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${trade.action === "BUY" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>

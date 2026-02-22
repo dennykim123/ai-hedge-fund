@@ -11,7 +11,11 @@ PM_SEEDS = [
     {"id": "sentinel",  "name": "Sentinel",    "emoji": "\U0001f6e1\ufe0f", "strategy": "Risk Hedge",    "llm_provider": "claude",    "broker_type": "kis"},
     {"id": "voxpopuli", "name": "Vox Populi",  "emoji": "\U0001f4f1", "strategy": "Social Tipping Point","llm_provider": "claude",    "broker_type": "kis"},
     # Bybit — 크립토 전담 PM
-    {"id": "satoshi",   "name": "Satoshi",     "emoji": "\u20bf",     "strategy": "Crypto Specialist",   "llm_provider": "claude",    "broker_type": "bybit"},
+    {"id": "satoshi",      "name": "Satoshi",      "emoji": "\u20bf",     "strategy": "Crypto On-Chain",       "llm_provider": "claude",     "broker_type": "bybit"},
+    {"id": "defi_whale",   "name": "DeFi Whale",   "emoji": "\U0001f40b", "strategy": "DeFi Yield & Liquidity","llm_provider": "openai",     "broker_type": "bybit"},
+    {"id": "crypto_quant", "name": "Crypto Quant",  "emoji": "\U0001f4d0", "strategy": "Crypto Quant Signals", "llm_provider": "rule_based", "broker_type": "bybit"},
+    {"id": "moon_hunter",  "name": "Moon Hunter",   "emoji": "\U0001f319", "strategy": "Altcoin Momentum",     "llm_provider": "gemini",     "broker_type": "bybit"},
+    {"id": "bear_guard",   "name": "Bear Guard",    "emoji": "\U0001f6e1\ufe0f", "strategy": "Crypto Risk Hedge",   "llm_provider": "grok",       "broker_type": "bybit"},
 ]
 
 

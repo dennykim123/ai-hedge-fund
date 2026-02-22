@@ -564,6 +564,149 @@ const translations = {
   "crypto.th_action": { en: "ACTION", ko: "\uB9E4\uB9E4" },
   "crypto.th_price": { en: "PRICE", ko: "\uAC00\uACA9" },
   "crypto.th_conviction": { en: "CONVICTION", ko: "\uD655\uC2E0\uB3C4" },
+  "crypto.th_agent": { en: "AGENT", ko: "\uC5D0\uC774\uC804\uD2B8" },
+
+  // Crypto Agents
+  "crypto.nav_agents": { en: "Agents", ko: "\uC5D0\uC774\uC804\uD2B8" },
+  "crypto.agents_title": {
+    en: "Crypto Agents",
+    ko: "\uD06C\uB9BD\uD1A0 \uC5D0\uC774\uC804\uD2B8",
+  },
+  "crypto.agents_subtitle": {
+    en: "5 AI agents with distinct crypto strategies",
+    ko: "5\uAC1C\uC758 \uACE0\uC720\uD55C \uD06C\uB9BD\uD1A0 \uC804\uB7B5 AI \uC5D0\uC774\uC804\uD2B8",
+  },
+  "crypto.run_all_agents": {
+    en: "\u25B6 Run All Agents",
+    ko: "\u25B6 \uC804\uCCB4 \uC5D0\uC774\uC804\uD2B8 \uC2E4\uD589",
+  },
+  "crypto.run_agent_cycle": {
+    en: "\u25B6 Run",
+    ko: "\u25B6 \uC2E4\uD589",
+  },
+  "crypto.total_capital": { en: "TOTAL CAPITAL", ko: "\uCD1D \uC790\uBCF8" },
+  "crypto.avg_return": {
+    en: "AVG RETURN",
+    ko: "\uD3C9\uADE0 \uC218\uC775\uB960",
+  },
+  "crypto.best_agent": {
+    en: "BEST AGENT",
+    ko: "\uCD5C\uACE0 \uC5D0\uC774\uC804\uD2B8",
+  },
+  "crypto.view_agents": {
+    en: "View All Agents \u2192",
+    ko: "\uC804\uCCB4 \uC5D0\uC774\uC804\uD2B8 \uBCF4\uAE30 \u2192",
+  },
+  "crypto.select_agent": {
+    en: "Select Agent",
+    ko: "\uC5D0\uC774\uC804\uD2B8 \uC120\uD0DD",
+  },
+  "crypto.all_agents": {
+    en: "All Agents",
+    ko: "\uC804\uCCB4 \uC5D0\uC774\uC804\uD2B8",
+  },
+  "crypto.running_all": {
+    en: "Running All...",
+    ko: "\uC804\uCCB4 \uC2E4\uD589 \uC911...",
+  },
+  "crypto.agent_rank": { en: "RANK", ko: "\uC21C\uC704" },
+  "crypto.strategy": { en: "STRATEGY", ko: "\uC804\uB7B5" },
+  "crypto.filter_all": { en: "All", ko: "\uC804\uCCB4" },
+
+  // Crypto Agent Strategy Descriptions
+  "crypto.desc_satoshi": {
+    en: "On-chain specialist analyzing whale movements, exchange flows, and crypto market cycles.",
+    ko: "\uC628\uCCB4\uC778 \uC804\uBB38\uAC00. \uACE0\uB798 \uC774\uB3D9, \uAC70\uB798\uC18C \uC790\uAE08 \uD750\uB984, \uD06C\uB9BD\uD1A0 \uC2DC\uC7A5 \uC0AC\uC774\uD074 \uBD84\uC11D.",
+  },
+  "crypto.desc_defi_whale": {
+    en: "DeFi ecosystem expert — yield farming, liquidity pools, TVL analysis.",
+    ko: "DeFi \uC0DD\uD0DC\uACC4 \uC804\uBB38\uAC00 \u2014 \uC774\uB4DC \uD30C\uBC0D, \uC720\uB3D9\uC131 \uD480, TVL \uBD84\uC11D.",
+  },
+  "crypto.desc_crypto_quant": {
+    en: "Pure quant on crypto — RSI, MACD, volume profiles, no emotion.",
+    ko: "\uC21C\uC218 \uD038\uD2B8 \uD06C\uB9BD\uD1A0 \u2014 RSI, MACD, \uAC70\uB798\uB7C9 \uD504\uB85C\uD30C\uC77C, \uAC10\uC815 \uBC30\uC81C.",
+  },
+  "crypto.desc_moon_hunter": {
+    en: "Altcoin momentum chaser — breakout detection, early trend riding.",
+    ko: "\uC54C\uD2B8\uCF54\uC778 \uBAA8\uBA58\uD140 \uCD94\uC801 \u2014 \uB3CC\uD30C \uAC10\uC9C0, \uCD08\uAE30 \uD2B8\uB80C\uB4DC \uD0D1\uC2B9.",
+  },
+  "crypto.desc_bear_guard": {
+    en: "Risk-first crypto — hedging, drawdown protection, bear market defense.",
+    ko: "\uB9AC\uC2A4\uD06C \uC6B0\uC120 \uD06C\uB9BD\uD1A0 \u2014 \uD5E4\uC9D5, \uB099\uD3ED \uBC29\uC5B4, \uD558\uB77D\uC7A5 \uBC29\uC5B4.",
+  },
+
+  // Agent Detail Page
+  "crypto.agent_detail": {
+    en: "Agent Detail",
+    ko: "\uC5D0\uC774\uC804\uD2B8 \uC0C1\uC138",
+  },
+  "crypto.back_to_agents": {
+    en: "\u2190 All Agents",
+    ko: "\u2190 \uC804\uCCB4 \uC5D0\uC774\uC804\uD2B8",
+  },
+  "crypto.open_positions": {
+    en: "OPEN POSITIONS",
+    ko: "\uBCF4\uC720 \uD3EC\uC9C0\uC158",
+  },
+  "crypto.no_agent_positions": {
+    en: "No positions for this agent",
+    ko: "\uC774 \uC5D0\uC774\uC804\uD2B8\uC758 \uD3EC\uC9C0\uC158 \uC5C6\uC74C",
+  },
+  "crypto.agent_trades": {
+    en: "TRADE HISTORY",
+    ko: "\uAC70\uB798 \uB0B4\uC5ED",
+  },
+  "crypto.no_agent_trades": {
+    en: "No trades executed yet",
+    ko: "\uC544\uC9C1 \uAC70\uB798 \uC5C6\uC74C",
+  },
+
+  // Toggle
+  "crypto.toggle_active": { en: "Active", ko: "\uD65C\uC131" },
+  "crypto.toggle_inactive": { en: "Inactive", ko: "\uBE44\uD65C\uC131" },
+
+  // Risk Metrics
+  "crypto.risk_metrics": {
+    en: "RISK METRICS",
+    ko: "\uB9AC\uC2A4\uD06C \uC9C0\uD45C",
+  },
+  "crypto.sharpe_ratio": { en: "SHARPE", ko: "\uC0E4\uD504" },
+  "crypto.max_drawdown": { en: "MAX DD", ko: "\uCD5C\uB300 \uB099\uD3ED" },
+  "crypto.win_rate": { en: "WIN RATE", ko: "\uC2B9\uB960" },
+  "crypto.profit_factor": {
+    en: "PROFIT FACTOR",
+    ko: "\uC218\uC775 \uD329\uD130",
+  },
+  "crypto.total_trades_count": {
+    en: "TOTAL TRADES",
+    ko: "\uCD1D \uAC70\uB798\uC218",
+  },
+  "crypto.avg_conviction": {
+    en: "AVG CONVICTION",
+    ko: "\uD3C9\uADE0 \uD655\uC2E0\uB3C4",
+  },
+
+  // Scheduler
+  "crypto.scheduler": { en: "AUTO TRADE", ko: "\uC790\uB3D9 \uB9E4\uB9E4" },
+  "crypto.scheduler_start": { en: "Start", ko: "\uC2DC\uC791" },
+  "crypto.scheduler_stop": { en: "Stop", ko: "\uC815\uC9C0" },
+  "crypto.scheduler_active": { en: "AUTO", ko: "\uC790\uB3D9" },
+  "crypto.scheduler_inactive": { en: "OFF", ko: "\uC815\uC9C0" },
+  "crypto.scheduler_interval": { en: "Interval", ko: "\uAC04\uACA9" },
+
+  // Comparison Chart
+  "crypto.performance_chart": {
+    en: "PERFORMANCE COMPARISON",
+    ko: "\uC131\uACFC \uBE44\uAD50",
+  },
+
+  // Live Feed
+  "crypto.live_feed": {
+    en: "LIVE FEED",
+    ko: "\uC2E4\uC2DC\uAC04 \uD53C\uB4DC",
+  },
+  "crypto.live_connected": { en: "LIVE", ko: "\uC2E4\uC2DC\uAC04" },
+  "crypto.live_disconnected": { en: "OFFLINE", ko: "\uC624\uD504\uB77C\uC778" },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

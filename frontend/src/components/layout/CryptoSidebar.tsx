@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   TrendingUp,
   Wallet,
+  Users,
   ChevronLeft,
   Globe,
   Home,
@@ -19,6 +20,7 @@ const NAV_ITEMS: {
   labelKey: TranslationKey;
 }[] = [
   { href: "/crypto", icon: LayoutDashboard, labelKey: "crypto.nav_dashboard" },
+  { href: "/crypto/agents", icon: Users, labelKey: "crypto.nav_agents" },
   { href: "/crypto/trade", icon: TrendingUp, labelKey: "crypto.nav_trade" },
   { href: "/crypto/portfolio", icon: Wallet, labelKey: "crypto.nav_portfolio" },
 ];
@@ -44,9 +46,10 @@ export function CryptoSidebar() {
 
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         {NAV_ITEMS.map(({ href, icon: Icon, labelKey }) => {
-          const active = href === "/crypto"
-            ? pathname === "/crypto"
-            : pathname?.startsWith(href);
+          const active =
+            href === "/crypto"
+              ? pathname === "/crypto"
+              : pathname?.startsWith(href);
 
           return (
             <Link
