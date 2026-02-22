@@ -189,6 +189,13 @@ const translations = {
     ko: "실제 소셜 데이터 활성화",
   },
   "sys.env": { en: "ENVIRONMENT", ko: "환경 설정" },
+  "sys.signal_feed": { en: "SIGNAL FEED", ko: "시그널 피드" },
+  "sys.broker_status": { en: "BROKER STATUS", ko: "브로커 상태" },
+  "sys.kill_switch": { en: "KILL SWITCH", ko: "긴급 정지" },
+  "sys.resume_all": { en: "RESUME ALL", ko: "전체 재개" },
+  "sys.switch_live": { en: "SWITCH TO LIVE", ko: "실거래 전환" },
+  "sys.switch_testnet": { en: "SWITCH TO TESTNET", ko: "테스트넷 전환" },
+  "sys.stopped": { en: "STOPPED", ko: "정지됨" },
   "sys.cycle_complete": { en: "Cycle complete", ko: "사이클 완료" },
   "sys.trades_exec": { en: "trades executed", ko: "건 거래 실행됨" },
   "sys.error_cycle": {

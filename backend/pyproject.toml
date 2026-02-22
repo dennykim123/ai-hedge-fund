@@ -19,6 +19,8 @@ dependencies = [
     "websockets>=14.0",
     "google-genai>=1.0.0",
     "yfinance>=0.2.0",
+    "pytrends>=4.9.0",
+    "praw>=7.7.0",
 ]
 
 [project.optional-dependencies]

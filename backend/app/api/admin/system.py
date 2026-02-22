@@ -77,10 +77,23 @@ async def get_recent_executions(limit: int = 20, db: Session = Depends(get_db)):
 
 @router.get("/social/freshness")
 async def get_social_freshness(db: Session = Depends(get_db)):
+    def _status(configured: bool) -> str:
+        return "healthy" if configured else "not_configured"
+
+    reddit_ok = bool(settings.reddit_client_id and settings.reddit_client_secret)
+    news_ok = bool(settings.news_api_key)
+
+    # pytrends는 API 키 불필요 — 라이브러리만 설치되면 됨
+    try:
+        from pytrends.request import TrendReq  # noqa: F401
+        trends_ok = True
+    except ImportError:
+        trends_ok = False
+
     return {
-        "reddit": {"status": "not_configured", "last_fetch": None},
-        "google_trends": {"status": "not_configured", "last_fetch": None},
-        "news_api": {"status": "not_configured", "last_fetch": None},
+        "reddit": {"status": _status(reddit_ok), "last_fetch": None},
+        "google_trends": {"status": _status(trends_ok), "last_fetch": None},
+        "news_api": {"status": _status(news_ok), "last_fetch": None},
     }
 
 

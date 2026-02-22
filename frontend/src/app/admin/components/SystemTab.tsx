@@ -36,6 +36,22 @@ interface BrokerInfo {
   is_active: boolean;
 }
 
+interface SignalRecord {
+  id: number;
+  pm_id: string;
+  symbol: string;
+  signal_type: string;
+  value: number;
+  metadata: {
+    rsi?: number;
+    momentum?: number;
+    volatility?: number;
+    rsi_signal?: string;
+    momentum_signal?: string;
+  };
+  created_at: string;
+}
+
 interface PipelineStats {
   pending: number;
   executing: number;
@@ -96,6 +112,7 @@ export function SystemTab() {
   const [killSwitchLoading, setKillSwitchLoading] = useState(false);
   const [bybitTestnet, setBybitTestnet] = useState(true);
   const [toggleLiveLoading, setToggleLiveLoading] = useState(false);
+  const [signals, setSignals] = useState<SignalRecord[]>([]);
 
   const fetchAll = useCallback(() => {
     Promise.all([
@@ -121,6 +138,10 @@ export function SystemTab() {
           setBrokers(d.brokers ?? []);
           if (d.bybit_testnet !== undefined) setBybitTestnet(d.bybit_testnet);
         })
+        .catch(() => {}),
+      fetch(`${BASE_URL}/api/trading/signals/recent?limit=20`)
+        .then((r) => r.json())
+        .then((d) => setSignals(d.signals ?? []))
         .catch(() => {}),
     ]);
   }, []);
@@ -389,7 +410,7 @@ export function SystemTab() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <p className="text-xs text-[#8b949e] tracking-widest">
-                BROKER STATUS
+                {t("sys.broker_status")}
               </p>
               <span
                 className={`text-xs px-2 py-0.5 rounded-full font-bold ${
@@ -414,8 +435,8 @@ export function SystemTab() {
                 {toggleLiveLoading
                   ? "..."
                   : bybitTestnet
-                    ? "SWITCH TO LIVE"
-                    : "SWITCH TO TESTNET"}
+                    ? t("sys.switch_live")
+                    : t("sys.switch_testnet")}
               </button>
               <button
                 onClick={handleKillSwitch}
@@ -429,8 +450,8 @@ export function SystemTab() {
                 {killSwitchLoading
                   ? "..."
                   : allActive
-                    ? "KILL SWITCH"
-                    : "RESUME ALL"}
+                    ? t("sys.kill_switch")
+                    : t("sys.resume_all")}
               </button>
             </div>
           </div>
@@ -464,12 +485,109 @@ export function SystemTab() {
                   </span>
                   {!b.is_active && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-500/30">
-                      STOPPED
+                      {t("sys.stopped")}
                     </span>
                   )}
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Signal Feed */}
+      {signals.length > 0 && (
+        <div className="glass-card p-5">
+          <p className="text-xs text-[#8b949e] tracking-widest mb-4">
+            {t("sys.signal_feed")}
+          </p>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {signals.map((s) => {
+              const score = s.value;
+              const scoreColor =
+                score > 0.25
+                  ? "text-green-400"
+                  : score < -0.25
+                    ? "text-red-400"
+                    : "text-[#8b949e]";
+              const scoreBg =
+                score > 0.25
+                  ? "bg-green-900/30 border-green-500/30"
+                  : score < -0.25
+                    ? "bg-red-900/30 border-red-500/30"
+                    : "bg-gray-800 border-[#30363d]";
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between bg-[#1c2128] px-4 py-3 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${scoreBg} ${scoreColor}`}
+                    >
+                      {score > 0 ? "+" : ""}
+                      {score.toFixed(3)}
+                    </span>
+                    <span className="text-sm font-medium text-white">
+                      {s.symbol}
+                    </span>
+                    <span className="text-xs text-[#8b949e]">{s.pm_id}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {s.metadata?.rsi !== undefined && (
+                      <span className="text-xs text-[#8b949e]">
+                        RSI{" "}
+                        <span
+                          className={
+                            s.metadata.rsi < 35
+                              ? "text-green-400"
+                              : s.metadata.rsi > 65
+                                ? "text-red-400"
+                                : "text-white"
+                          }
+                        >
+                          {s.metadata.rsi.toFixed(1)}
+                        </span>
+                      </span>
+                    )}
+                    {s.metadata?.momentum !== undefined && (
+                      <span className="text-xs text-[#8b949e]">
+                        MOM{" "}
+                        <span className="text-white">
+                          {s.metadata.momentum.toFixed(3)}
+                        </span>
+                      </span>
+                    )}
+                    {s.metadata?.volatility !== undefined && (
+                      <span className="text-xs text-[#8b949e]">
+                        VOL{" "}
+                        <span className="text-white">
+                          {s.metadata.volatility.toFixed(3)}
+                        </span>
+                      </span>
+                    )}
+                    {s.metadata?.rsi_signal && (
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded ${
+                          s.metadata.rsi_signal === "BUY"
+                            ? "bg-green-900/30 text-green-400"
+                            : s.metadata.rsi_signal === "SELL"
+                              ? "bg-red-900/30 text-red-400"
+                              : "bg-gray-800 text-[#8b949e]"
+                        }`}
+                      >
+                        {s.metadata.rsi_signal}
+                      </span>
+                    )}
+                    <span className="text-xs text-[#8b949e]">
+                      {s.created_at
+                        ? new Date(s.created_at).toLocaleTimeString()
+                        : ""}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
