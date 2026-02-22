@@ -179,6 +179,11 @@ async def _execute_buy(
             }
         # 실제 체결 가격이 있으면 사용
         filled_price = order_result.get("filled_avg_price") or price
+        # 수수료 계산
+        fee = order_result.get("fee")
+        if fee is None:
+            fee_rate = order_result.get("fee_rate", 0.001)
+            fee = round(quantity * filled_price * fee_rate, 4)
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.error("Broker BUY error for %s %s: %s", pm.id, symbol, e)
         return {"trade_executed": False, "reason": f"broker_error: {e}"}
@@ -197,9 +202,10 @@ async def _execute_buy(
     db.add(Trade(
         pm_id=pm.id, symbol=symbol, action="BUY",
         quantity=quantity, price=filled_price, conviction_score=0.7,
-        reasoning=f"[{broker.__class__.__name__}] BUY at ${filled_price:.4f}",
+        reasoning=f"[{broker.__class__.__name__}] BUY at ${filled_price:.4f} (fee: ${fee:.4f})",
+        fee=fee,
     ))
-    return {"trade_executed": True, "quantity": quantity, "price": filled_price}
+    return {"trade_executed": True, "quantity": quantity, "price": filled_price, "fee": fee}
 
 
 async def _execute_sell(
@@ -227,11 +233,17 @@ async def _execute_sell(
                 "broker_raw": order_result,
             }
         filled_price = order_result.get("filled_avg_price") or price
+        # 수수료 계산
+        fee = order_result.get("fee")
+        if fee is None:
+            fee_rate = order_result.get("fee_rate", 0.001)
+            fee = round(sell_qty * filled_price * fee_rate, 4)
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.error("Broker SELL error for %s %s: %s", pm.id, symbol, e)
         return {"trade_executed": False, "reason": f"broker_error: {e}"}
 
-    pnl = (filled_price - existing.avg_cost) * sell_qty
+    gross_pnl = (filled_price - existing.avg_cost) * sell_qty
+    pnl = gross_pnl - fee  # 수수료 차감한 순수익
     existing.quantity -= sell_qty
     if existing.quantity <= 0.001:
         db.delete(existing)
@@ -239,9 +251,10 @@ async def _execute_sell(
     db.add(Trade(
         pm_id=pm.id, symbol=symbol, action="SELL",
         quantity=sell_qty, price=filled_price, conviction_score=0.7,
-        reasoning=f"[{broker.__class__.__name__}] SELL at ${filled_price:.4f} (P&L: ${pnl:+.2f})",
+        reasoning=f"[{broker.__class__.__name__}] SELL at ${filled_price:.4f} (P&L: ${pnl:+.2f}, fee: ${fee:.4f})",
+        fee=fee,
     ))
-    return {"trade_executed": True, "quantity": sell_qty, "price": filled_price, "pnl": round(pnl, 2)}
+    return {"trade_executed": True, "quantity": sell_qty, "price": filled_price, "pnl": round(pnl, 2), "fee": fee}
 
 
 def _get_cash(pm: PM, db: Session) -> float:

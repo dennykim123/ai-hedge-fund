@@ -48,6 +48,8 @@ class BrokerAdapter(ABC):
 class PaperAdapter(BrokerAdapter):
     """실제 API 호출 없이 즉시 체결 시뮬레이션"""
 
+    SIMULATED_FEE_RATE = 0.001  # 0.1% (Bybit 기본 수수료율 시뮬레이션)
+
     async def place_order(
         self, symbol: str, qty: float, side: str, order_type: str = "market"
     ) -> dict:
@@ -59,6 +61,8 @@ class PaperAdapter(BrokerAdapter):
             "side": side,
             "filled_qty": qty,
             "filled_avg_price": None,  # trading_cycle이 현재가 사용
+            "fee": None,  # trading_cycle에서 가격 기반 계산
+            "fee_rate": self.SIMULATED_FEE_RATE,
         }
 
     async def get_positions(self) -> list[dict]:
@@ -394,14 +398,17 @@ class BybitAdapter(BrokerAdapter):
         order_info = data.get("result", {})
         order_id = order_info.get("orderId", "")
 
-        # 실제 체결 가격 조회
+        # 실제 체결 가격 + 수수료 조회
         filled_price = None
+        fee = None
         if order_id:
             try:
-                filled_price = await self._get_fill_price(order_id, bybit_symbol)
+                fill_info = await self._get_fill_info(order_id, bybit_symbol)
+                filled_price = fill_info.get("price")
+                fee = fill_info.get("fee")
             except Exception as e:
                 import logging
-                logging.getLogger(__name__).warning("Fill price query failed: %s", e)
+                logging.getLogger(__name__).warning("Fill info query failed: %s", e)
 
         return {
             "status": "filled",
@@ -413,10 +420,11 @@ class BybitAdapter(BrokerAdapter):
             "order_id": order_id,
             "filled_qty": qty,
             "filled_avg_price": filled_price,
+            "fee": fee,
         }
 
-    async def _get_fill_price(self, order_id: str, bybit_symbol: str) -> float | None:
-        """주문 체결 가격 조회 (v5/order/realtime)"""
+    async def _get_fill_info(self, order_id: str, bybit_symbol: str) -> dict:
+        """주문 체결 가격 + 수수료 조회 (v5/order/realtime)"""
         import httpx, time
 
         params = f"category=spot&orderId={order_id}"
@@ -437,13 +445,19 @@ class BybitAdapter(BrokerAdapter):
             r.raise_for_status()
             data = r.json()
 
+        result: dict[str, float | None] = {"price": None, "fee": None}
         orders = data.get("result", {}).get("list", [])
         if orders:
-            avg_price = orders[0].get("avgPrice", "0")
+            order = orders[0]
+            avg_price = order.get("avgPrice", "0")
             price = float(avg_price) if avg_price else None
             if price and price > 0:
-                return price
-        return None
+                result["price"] = price
+            cum_fee = order.get("cumExecFee", "0")
+            fee = float(cum_fee) if cum_fee else None
+            if fee is not None:
+                result["fee"] = abs(fee)
+        return result
 
     async def get_positions(self) -> list[dict]:
         """현물 잔고 조회"""

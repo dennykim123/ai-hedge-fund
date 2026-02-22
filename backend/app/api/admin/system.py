@@ -67,6 +67,7 @@ async def get_recent_executions(limit: int = 20, db: Session = Depends(get_db)):
                 "action": t.action,
                 "quantity": t.quantity,
                 "price": t.price,
+                "fee": getattr(t, "fee", 0.0) or 0.0,
                 "executed_at": (t.executed_at.isoformat() + "Z") if t.executed_at else None,
             }
             for t in trades

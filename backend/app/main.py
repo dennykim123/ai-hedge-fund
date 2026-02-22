@@ -20,6 +20,13 @@ from app.core.scheduler import start_scheduler, stop_scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Lightweight migration: add missing columns to existing tables
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        columns = [c["name"] for c in inspect(engine).get_columns("trades")]
+        if "fee" not in columns:
+            conn.execute(text("ALTER TABLE trades ADD COLUMN fee FLOAT DEFAULT 0.0"))
+            conn.commit()
     db = next(get_db())
     from app.db.seed import seed_pms
     from app.engines.trading_cycle import seed_nav_history

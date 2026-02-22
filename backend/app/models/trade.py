@@ -16,4 +16,5 @@ class Trade(Base):
     asset_type: Mapped[str] = mapped_column(String(20), default="stock")
     conviction_score: Mapped[float] = mapped_column(Float, default=0.0)
     reasoning: Mapped[str] = mapped_column(String(2000), default="")
+    fee: Mapped[float] = mapped_column(Float, default=0.0)
     executed_at = mapped_column(DateTime, server_default=func.now())
