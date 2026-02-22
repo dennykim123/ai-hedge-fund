@@ -181,3 +181,73 @@ async def resume_trading(db: Session = Depends(get_db)):
     db.query(PM).update({"is_active": True})
     db.commit()
     return {"status": "ok", "message": "All PMs reactivated. Trading resumed."}
+
+
+@router.get("/broker/reconcile")
+async def reconcile_positions(db: Session = Depends(get_db)):
+    """DB 포지션과 실제 브로커 잔고 비교 (Balance Reconciliation)"""
+    from app.models.pm import PM
+    from app.models.position import Position
+    from app.engines.broker import get_broker_for_pm, PaperAdapter
+
+    pms = db.query(PM).all()
+    results = []
+
+    for pm in pms:
+        broker = get_broker_for_pm(pm.broker_type)
+
+        # Paper 브로커는 실제 잔고 조회 불가 — DB만 표시
+        if isinstance(broker, PaperAdapter):
+            db_positions = db.query(Position).filter(Position.pm_id == pm.id).all()
+            for pos in db_positions:
+                results.append({
+                    "pm_id": pm.id,
+                    "pm_name": pm.name,
+                    "emoji": pm.emoji,
+                    "symbol": pos.symbol,
+                    "db_qty": round(pos.quantity, 6),
+                    "broker_qty": None,
+                    "diff": None,
+                    "status": "paper",
+                })
+            continue
+
+        # 실제 브로커: 잔고 조회 시도
+        try:
+            broker_positions = await broker.get_positions()
+        except Exception as e:
+            results.append({
+                "pm_id": pm.id,
+                "pm_name": pm.name,
+                "emoji": pm.emoji,
+                "symbol": "*",
+                "db_qty": None,
+                "broker_qty": None,
+                "diff": None,
+                "status": "error",
+                "error": str(e),
+            })
+            continue
+
+        db_positions = db.query(Position).filter(Position.pm_id == pm.id).all()
+        db_map = {p.symbol: p.quantity for p in db_positions}
+        broker_map = {p["symbol"]: p["qty"] for p in broker_positions}
+
+        all_symbols = set(db_map.keys()) | set(broker_map.keys())
+        for symbol in sorted(all_symbols):
+            db_qty = round(db_map.get(symbol, 0.0), 6)
+            broker_qty = round(broker_map.get(symbol, 0.0), 6)
+            diff = round(broker_qty - db_qty, 6)
+            status = "match" if abs(diff) < 0.0001 else "mismatch"
+            results.append({
+                "pm_id": pm.id,
+                "pm_name": pm.name,
+                "emoji": pm.emoji,
+                "symbol": symbol,
+                "db_qty": db_qty,
+                "broker_qty": broker_qty,
+                "diff": diff,
+                "status": status,
+            })
+
+    return {"positions": results}

@@ -196,6 +196,18 @@ const translations = {
   "sys.switch_live": { en: "SWITCH TO LIVE", ko: "실거래 전환" },
   "sys.switch_testnet": { en: "SWITCH TO TESTNET", ko: "테스트넷 전환" },
   "sys.stopped": { en: "STOPPED", ko: "정지됨" },
+  "sys.reconciliation": { en: "BALANCE RECONCILIATION", ko: "잔고 대조" },
+  "sys.reconcile": { en: "Reconcile", ko: "잔고 대조" },
+  "sys.db_qty": { en: "DB", ko: "DB" },
+  "sys.broker_qty": { en: "Broker", ko: "브로커" },
+  "sys.diff": { en: "Diff", ko: "차이" },
+  "sys.match": { en: "Match", ko: "일치" },
+  "sys.mismatch": { en: "Mismatch", ko: "불일치" },
+  "sys.no_positions": {
+    en: "No positions to reconcile",
+    ko: "대조할 포지션 없음",
+  },
+  "sys.reconciling": { en: "Reconciling...", ko: "대조 중..." },
   "sys.cycle_complete": { en: "Cycle complete", ko: "사이클 완료" },
   "sys.trades_exec": { en: "trades executed", ko: "건 거래 실행됨" },
   "sys.error_cycle": {

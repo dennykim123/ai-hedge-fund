@@ -52,6 +52,18 @@ interface SignalRecord {
   created_at: string;
 }
 
+interface ReconcileItem {
+  pm_id: string;
+  pm_name: string;
+  emoji: string;
+  symbol: string;
+  db_qty: number | null;
+  broker_qty: number | null;
+  diff: number | null;
+  status: string;
+  error?: string;
+}
+
 interface PipelineStats {
   pending: number;
   executing: number;
@@ -113,6 +125,8 @@ export function SystemTab() {
   const [bybitTestnet, setBybitTestnet] = useState(true);
   const [toggleLiveLoading, setToggleLiveLoading] = useState(false);
   const [signals, setSignals] = useState<SignalRecord[]>([]);
+  const [reconcileData, setReconcileData] = useState<ReconcileItem[]>([]);
+  const [reconciling, setReconciling] = useState(false);
 
   const fetchAll = useCallback(() => {
     Promise.all([
@@ -218,6 +232,19 @@ export function SystemTab() {
       // ignore
     } finally {
       setToggleLiveLoading(false);
+    }
+  };
+
+  const handleReconcile = async () => {
+    setReconciling(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/fund/broker/reconcile`);
+      const data = await res.json();
+      setReconcileData(data.positions ?? []);
+    } catch {
+      // ignore
+    } finally {
+      setReconciling(false);
     }
   };
 
@@ -591,6 +618,98 @@ export function SystemTab() {
           </div>
         </div>
       )}
+
+      {/* Balance Reconciliation */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs text-[#8b949e] tracking-widest">
+            {t("sys.reconciliation")}
+          </p>
+          <button
+            onClick={handleReconcile}
+            disabled={reconciling}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition"
+          >
+            {reconciling ? t("sys.reconciling") : t("sys.reconcile")}
+          </button>
+        </div>
+        {reconcileData.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-[#8b949e] uppercase border-b border-[#30363d]">
+                  <th className="text-left py-2 px-3">PM</th>
+                  <th className="text-left py-2 px-3">{t("pm.th_symbol")}</th>
+                  <th className="text-right py-2 px-3">{t("sys.db_qty")}</th>
+                  <th className="text-right py-2 px-3">
+                    {t("sys.broker_qty")}
+                  </th>
+                  <th className="text-right py-2 px-3">{t("sys.diff")}</th>
+                  <th className="text-center py-2 px-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reconcileData.map((item, idx) => (
+                  <tr
+                    key={`${item.pm_id}-${item.symbol}-${idx}`}
+                    className="border-b border-[#30363d]/50 hover:bg-[#1c2128]"
+                  >
+                    <td className="py-2 px-3">
+                      <span className="mr-1">{item.emoji}</span>
+                      <span className="text-white">{item.pm_name}</span>
+                    </td>
+                    <td className="py-2 px-3 font-mono text-white">
+                      {item.symbol}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-white">
+                      {item.db_qty !== null ? item.db_qty.toFixed(4) : "—"}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-white">
+                      {item.broker_qty !== null
+                        ? item.broker_qty.toFixed(4)
+                        : "—"}
+                    </td>
+                    <td
+                      className={`py-2 px-3 text-right font-mono ${
+                        item.diff !== null && Math.abs(item.diff) > 0.0001
+                          ? "text-red-400"
+                          : "text-green-400"
+                      }`}
+                    >
+                      {item.diff !== null
+                        ? (item.diff > 0 ? "+" : "") + item.diff.toFixed(4)
+                        : "—"}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          item.status === "match"
+                            ? "bg-green-900/30 text-green-400 border border-green-500/30"
+                            : item.status === "mismatch"
+                              ? "bg-red-900/30 text-red-400 border border-red-500/30"
+                              : item.status === "paper"
+                                ? "bg-gray-800 text-[#8b949e] border border-[#30363d]"
+                                : "bg-yellow-900/30 text-yellow-400 border border-yellow-500/30"
+                        }`}
+                      >
+                        {item.status === "match"
+                          ? t("sys.match")
+                          : item.status === "mismatch"
+                            ? t("sys.mismatch")
+                            : item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-[#8b949e] text-center py-6">
+            {t("sys.no_positions")}
+          </p>
+        )}
+      </div>
 
       {/* Environment Info */}
       <div className="glass-card p-5">
