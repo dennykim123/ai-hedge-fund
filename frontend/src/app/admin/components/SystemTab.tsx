@@ -127,6 +127,7 @@ export function SystemTab() {
   const [signals, setSignals] = useState<SignalRecord[]>([]);
   const [reconcileData, setReconcileData] = useState<ReconcileItem[]>([]);
   const [reconciling, setReconciling] = useState(false);
+  const [liveConfirmStep, setLiveConfirmStep] = useState<0 | 1 | 2>(0);
 
   const fetchAll = useCallback(() => {
     Promise.all([
@@ -208,18 +209,18 @@ export function SystemTab() {
     }
   };
 
-  const handleToggleLive = async () => {
+  const handleToggleLive = () => {
     if (bybitTestnet) {
-      // testnet → LIVE: 이중 확인 필요
-      const first = confirm(
-        "WARNING: This will switch Bybit to LIVE trading with REAL money.\n\nAre you sure?",
-      );
-      if (!first) return;
-      const second = confirm(
-        "FINAL CONFIRMATION: Real funds will be used for trading.\n\nClick OK to enable LIVE mode.",
-      );
-      if (!second) return;
+      // testnet → LIVE: 모달 확인 시작
+      setLiveConfirmStep(1);
+    } else {
+      // LIVE → testnet: 바로 전환
+      doToggleLive();
     }
+  };
+
+  const doToggleLive = async () => {
+    setLiveConfirmStep(0);
     setToggleLiveLoading(true);
     try {
       const res = await fetch(`${BASE_URL}/api/fund/broker/toggle-live`, {
@@ -730,6 +731,72 @@ export function SystemTab() {
           ))}
         </div>
       </div>
+
+      {/* Live Trading Confirm Modal */}
+      {liveConfirmStep > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 max-w-md mx-4 shadow-2xl">
+            {liveConfirmStep === 1 ? (
+              <>
+                <h3 className="text-lg font-bold text-yellow-400 mb-3">
+                  ⚠️ WARNING
+                </h3>
+                <p className="text-[#c9d1d9] mb-6">
+                  This will switch Bybit to{" "}
+                  <span className="text-red-400 font-bold">LIVE trading</span>{" "}
+                  with{" "}
+                  <span className="text-red-400 font-bold">REAL money</span>.
+                  <br />
+                  <br />
+                  Are you sure?
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setLiveConfirmStep(0)}
+                    className="px-4 py-2 rounded-lg bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d] transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setLiveConfirmStep(2)}
+                    className="px-4 py-2 rounded-lg bg-yellow-600 text-white hover:bg-yellow-500 transition font-semibold"
+                  >
+                    Yes, continue
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-red-400 mb-3">
+                  🚨 FINAL CONFIRMATION
+                </h3>
+                <p className="text-[#c9d1d9] mb-6">
+                  Real funds will be used for trading.
+                  <br />
+                  <br />
+                  Click{" "}
+                  <span className="font-bold text-red-400">Enable LIVE</span> to
+                  confirm.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setLiveConfirmStep(0)}
+                    className="px-4 py-2 rounded-lg bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d] transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={doToggleLive}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 transition font-semibold"
+                  >
+                    Enable LIVE
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
