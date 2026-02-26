@@ -176,7 +176,9 @@ async def _execute_buy(
         broker = PaperAdapter()
 
     order_value = quantity * price
-    position_limit = pm.current_capital * settings.position_limit_pct
+    is_crypto = getattr(pm, "broker_type", "paper") == "bybit"
+    limit_pct = 0.95 if is_crypto else settings.position_limit_pct
+    position_limit = pm.current_capital * limit_pct
 
     if order_value > position_limit:
         quantity = position_limit / price
