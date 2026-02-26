@@ -27,8 +27,10 @@ def check_risk(
     거래 전 리스크 체크.
     Returns (allowed: bool, reason: str)
     """
-    # 1. 단일 주문 금액 한도
-    max_trade = pm.current_capital * settings.position_limit_pct
+    # 1. 단일 주문 금액 한도 (크립토 소액 계좌는 95%까지 허용)
+    is_crypto = getattr(pm, "broker_type", "paper") == "bybit"
+    limit_pct = 0.95 if is_crypto else settings.position_limit_pct
+    max_trade = pm.current_capital * limit_pct
     if trade_amount > max_trade:
         return False, f"Trade amount ${trade_amount:.2f} exceeds limit ${max_trade:.2f}"
 
