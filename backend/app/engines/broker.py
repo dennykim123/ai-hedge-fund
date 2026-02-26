@@ -306,7 +306,7 @@ class BybitAdapter(BrokerAdapter):
     LIVE_URL = "https://api.bybit.com"
     TEST_URL = "https://api-testnet.bybit.com"
 
-    # yfinance 심볼 → Bybit 심볼 변환
+    # yfinance 심볼 → Bybit 심볼 변환 (실제 Bybit 현물 페어만)
     SYMBOL_MAP: dict[str, str] = {
         "BTC-USD":  "BTCUSDT",
         "ETH-USD":  "ETHUSDT",
@@ -315,8 +315,6 @@ class BybitAdapter(BrokerAdapter):
         "XRP-USD":  "XRPUSDT",
         "ADA-USD":  "ADAUSDT",
         "DOGE-USD": "DOGEUSDT",
-        "COIN":     "COINUSDT",   # Coinbase 주식은 Bybit 미지원 → USDT 페어 없음
-        "MSTR":     "MSTRUSDT",
     }
 
     def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
@@ -489,7 +487,7 @@ class BybitAdapter(BrokerAdapter):
         return positions
 
     async def get_account(self) -> dict:
-        """UNIFIED 계좌 잔고"""
+        """UNIFIED 계좌 잔고 (상세)"""
         import httpx
 
         params = "accountType=UNIFIED"
@@ -505,13 +503,29 @@ class BybitAdapter(BrokerAdapter):
             data = r.json()
 
         account_list = data.get("result", {}).get("list", [])
-        total_equity = sum(
-            float(a.get("totalEquity", 0)) for a in account_list
-        )
+        if not account_list:
+            return {"broker": "bybit", "testnet": self._testnet, "total_equity_usd": 0, "coins": []}
+
+        acct = account_list[0]
+        total_equity = float(acct.get("totalEquity", 0))
+        available = float(acct.get("totalAvailableBalance", 0))
+
+        coins = []
+        for coin in acct.get("coin", []):
+            eq = float(coin.get("equity", 0))
+            if eq > 0.0001:
+                coins.append({
+                    "coin": coin["coin"],
+                    "equity": round(eq, 6),
+                    "usd_value": round(float(coin.get("usdValue", 0)), 2),
+                })
+
         return {
             "broker": "bybit",
             "testnet": self._testnet,
-            "total_equity_usd": total_equity,
+            "total_equity_usd": round(total_equity, 2),
+            "available_balance_usd": round(available, 2),
+            "coins": coins,
         }
 
 

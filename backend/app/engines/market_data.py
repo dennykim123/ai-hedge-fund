@@ -21,7 +21,7 @@ PM_WATCHLISTS: dict[str, list[str]] = {
     "drflow": ["SPY", "AAPL", "TSLA", "NVDA", "META"],
     "insider": ["AAPL", "MSFT", "GOOGL", "META", "AMZN"],
     "maxpayne": ["SPY", "VIX", "SQQQ", "UVXY", "SH"],
-    "satoshi":      ["BTC-USD", "ETH-USD", "SOL-USD", "COIN", "MSTR"],
+    "satoshi":      ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD"],
     "defi_whale":   ["ETH-USD", "SOL-USD", "BNB-USD", "ADA-USD", "DOGE-USD"],
     "crypto_quant": ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "BNB-USD"],
     "moon_hunter":  ["SOL-USD", "ADA-USD", "DOGE-USD", "XRP-USD", "BNB-USD"],

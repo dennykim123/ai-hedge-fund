@@ -310,7 +310,7 @@ def _rule_based_decision(pm_id: str, signals: dict, has_positions: bool = True) 
     if not has_positions:
         if adjusted_score > -0.80:
             conviction = max(0.5, min(0.5 + abs(adjusted_score), 1.0))
-            return {"action": "BUY", "conviction": conviction, "reasoning": f"Initial position: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.05}
+            return {"action": "BUY", "conviction": conviction, "reasoning": f"Initial position: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.70}
         return {"action": "HOLD", "conviction": 0.3, "reasoning": f"Extreme bearish, skip entry: composite={score:.2f}", "position_size": 0.0}
 
     if adjusted_score > 0.25:
