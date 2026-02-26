@@ -25,7 +25,8 @@ class TradingMode(Enum):
 class BrokerAdapter(ABC):
     @abstractmethod
     async def place_order(
-        self, symbol: str, qty: float, side: str, order_type: str = "market"
+        self, symbol: str, qty: float, side: str, order_type: str = "market",
+        *, notional: float = 0.0,
     ) -> dict:
         pass  # pragma: no cover
 
@@ -51,7 +52,8 @@ class PaperAdapter(BrokerAdapter):
     SIMULATED_FEE_RATE = 0.001  # 0.1% (Bybit 기본 수수료율 시뮬레이션)
 
     async def place_order(
-        self, symbol: str, qty: float, side: str, order_type: str = "market"
+        self, symbol: str, qty: float, side: str, order_type: str = "market",
+        *, notional: float = 0.0,
     ) -> dict:
         return {
             "status": "filled",
@@ -345,12 +347,20 @@ class BybitAdapter(BrokerAdapter):
             "Content-Type": "application/json",
         }
 
+    # Bybit 종목별 수량 소수점 자릿수
+    QTY_PRECISION: dict[str, int] = {
+        "BTCUSDT": 6, "ETHUSDT": 5, "SOLUSDT": 4,
+        "BNBUSDT": 4, "XRPUSDT": 2, "ADAUSDT": 2, "DOGEUSDT": 1,
+    }
+
     async def place_order(
-        self, symbol: str, qty: float, side: str, order_type: str = "market"
+        self, symbol: str, qty: float, side: str, order_type: str = "market",
+        *, notional: float = 0.0,
     ) -> dict:
         """
         Bybit v5 현물 주문
         category: spot (현물), linear (USDT 무기한 선물)
+        notional: Market BUY일 때 USDT 금액 직접 지정 (정밀도 이슈 회피)
         """
         import httpx, json, time
 
@@ -362,9 +372,16 @@ class BybitAdapter(BrokerAdapter):
             "symbol": bybit_symbol,
             "side": bybit_side,
             "orderType": "Market",
-            "qty": str(round(qty, 6)),
-            "timeInForce": "IOC",
         }
+
+        if bybit_side == "Buy" and notional > 0:
+            # Market BUY: quoteCoin 모드 — USDT 금액 지정
+            body["marketUnit"] = "quoteCoin"
+            body["qty"] = str(round(notional, 2))
+        else:
+            # baseCoin 수량 지정 (정밀도 맞춤)
+            precision = self.QTY_PRECISION.get(bybit_symbol, 6)
+            body["qty"] = str(round(qty, precision))
         body_str = json.dumps(body)
         timestamp = str(int(time.time() * 1000))
         headers = {

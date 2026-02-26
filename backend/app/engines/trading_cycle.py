@@ -193,7 +193,7 @@ async def _execute_buy(
 
     # 브로커 주문 (실패 시 DB 기록 생략)
     try:
-        order_result = await broker.place_order(symbol, quantity, "BUY")
+        order_result = await broker.place_order(symbol, quantity, "BUY", notional=order_value)
         if order_result.get("status") not in ("filled", "partially_filled"):
             return {
                 "trade_executed": False,
