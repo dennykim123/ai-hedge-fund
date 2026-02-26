@@ -121,6 +121,9 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
             # 최소 거래 금액 (주식 $10, 크립토 $5.5)
             min_trade_usd = 5.5 if getattr(pm, "broker_type", "paper") == "bybit" else 10.0
             trade_amount = pm.current_capital * position_size
+            # 포지션 한도에 맞춰 캡 (리스크 체크 통과용)
+            position_cap = pm.current_capital * settings.position_limit_pct
+            trade_amount = min(trade_amount, position_cap)
             if trade_amount < min_trade_usd and pm.current_capital >= min_trade_usd:
                 trade_amount = min(min_trade_usd, pm.current_capital * 0.50)
             quantity = trade_amount / current_price
