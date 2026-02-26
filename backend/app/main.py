@@ -35,9 +35,19 @@ async def lifespan(app: FastAPI):
     seed_pms(db)
     seed_nav_history(db)
     db.close()
-    start_scheduler(interval_seconds=300)  # 5분마다 자동 거래 사이클
+    start_scheduler(interval_seconds=300)  # 5분마다 주식 PM 자동 거래
+    # 크립토 PM 전용 스케줄러 자동 시작
+    import asyncio
+    import app.api.crypto as crypto_mod
+    loop = asyncio.get_event_loop()
+    crypto_mod._crypto_scheduler_task = loop.create_task(
+        crypto_mod._crypto_trading_loop(300)
+    )
+    crypto_mod._crypto_scheduler_interval = 300
     yield
     stop_scheduler()
+    if crypto_mod._crypto_scheduler_task and not crypto_mod._crypto_scheduler_task.done():
+        crypto_mod._crypto_scheduler_task.cancel()
 
 
 app = FastAPI(title="AI Hedge Fund", version="0.2.0", lifespan=lifespan)

@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/fund", tags=["fund"])
 async def get_fund_stats(db: Session = Depends(get_db)):
     pms = db.query(PM).filter(PM.is_active == True).all()
     total_capital = sum(pm.current_capital for pm in pms)
-    initial_total = len(pms) * 100_000.0
+    initial_total = sum(pm.initial_capital for pm in pms)
 
     # 오늘 return: 마지막 두 NAV 기록 비교
     last_two = db.query(NAVHistory).order_by(NAVHistory.id.desc()).limit(2).all()
@@ -48,7 +48,10 @@ async def get_pms(db: Session = Depends(get_db)):
     pms = db.query(PM).filter(PM.is_active == True).order_by(PM.id).all()
     result = []
     for pm in pms:
-        itd = (pm.current_capital - 100_000.0) / 100_000.0 * 100
+        itd = (
+            (pm.current_capital - pm.initial_capital) / pm.initial_capital * 100
+            if pm.initial_capital > 0 else 0.0
+        )
         result.append(
             PMSummary(
                 id=pm.id,
@@ -154,7 +157,10 @@ async def get_pm_performance(db: Session = Depends(get_db)):
     pms = db.query(PM).filter(PM.is_active == True).all()
     result = []
     for pm in pms:
-        itd = (pm.current_capital - 100_000.0) / 100_000.0 * 100
+        itd = (
+            (pm.current_capital - pm.initial_capital) / pm.initial_capital * 100
+            if pm.initial_capital > 0 else 0.0
+        )
         trade_count = db.query(Trade).filter(Trade.pm_id == pm.id).count()
         result.append({
             "id": pm.id,

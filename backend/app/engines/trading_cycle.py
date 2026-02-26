@@ -89,7 +89,7 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
                     market_context=market_context,
                     llm_provider=provider,
                 )
-            except (RuntimeError, ValueError, KeyError, ConnectionError) as e:
+            except Exception as e:
                 # API 키 없거나 에러 → 규칙 기반 폴백
                 logger.warning("LLM fallback for %s: %s", pm.id, e)
                 decision = _rule_based_decision(pm.id, signals)
@@ -114,8 +114,20 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
             from app.engines.risk_guard import check_risk
             broker = get_broker_for_pm(getattr(pm, "broker_type", "paper"))
 
+            # 최소 거래 금액 (주식 $10, 크립토 $5.5)
+            min_trade_usd = 5.5 if getattr(pm, "broker_type", "paper") == "bybit" else 10.0
             trade_amount = pm.current_capital * position_size
+            if trade_amount < min_trade_usd and pm.current_capital >= min_trade_usd:
+                trade_amount = min(min_trade_usd, pm.current_capital * 0.50)
             quantity = trade_amount / current_price
+
+            # 현금 부족으로 의미 없는 극소량 거래 방지
+            cash = _get_cash(pm, db)
+            if cash < min_trade_usd:
+                result["skipped"] = True
+                result["reason"] = f"insufficient_cash (${cash:.2f} < ${min_trade_usd})"
+                db.commit()
+                return result
 
             # 리스크 체크 (실거래 브로커일 때만 엄격하게)
             if broker.is_live():
@@ -300,9 +312,12 @@ def _rule_based_decision(pm_id: str, signals: dict) -> dict:
         return {"action": "HOLD", "conviction": 0.3, "reasoning": f"Neutral signal: composite={score:.2f}", "position_size": 0.0}
 
 
-async def run_all_pm_cycles(db: Session) -> list[dict]:
-    """모든 활성 PM의 트레이딩 사이클 병렬 실행"""
-    pms = db.query(PM).filter(PM.is_active == True).all()
+async def run_all_pm_cycles(db: Session, *, exclude_crypto: bool = True) -> list[dict]:
+    """활성 PM의 트레이딩 사이클 병렬 실행 (크립토 PM은 전용 스케줄러에서 실행)"""
+    query = db.query(PM).filter(PM.is_active == True)
+    if exclude_crypto:
+        query = query.filter(PM.broker_type != "bybit")
+    pms = query.all()
     tasks = [run_pm_cycle(pm, db) for pm in pms]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return [r if isinstance(r, dict) else {"status": "error", "reason": str(r)} for r in results]
