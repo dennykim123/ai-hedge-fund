@@ -155,7 +155,7 @@ Symbol: {symbol}
 Quant Signals: {json.dumps(quant_signals)}
 Market Context: {json.dumps(market_context)}
 
-Make a trading decision. If conviction < 0.5, use HOLD."""
+Make a trading decision. If conviction < 0.3, use HOLD. Be willing to take positions when signals are mildly favorable."""
 
         call_map = {
             "claude": self._call_claude,
@@ -171,7 +171,7 @@ Make a trading decision. If conviction < 0.5, use HOLD."""
 
         result = await caller(pm_id, prompt)
 
-        if result.get("conviction", 0) < 0.5:
+        if result.get("conviction", 0) < settings.min_conviction:
             result["action"] = "HOLD"
 
         return {

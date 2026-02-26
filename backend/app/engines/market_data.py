@@ -93,7 +93,9 @@ def _mock_price_history(symbol: str, days: int) -> pd.Series:
     """Mock 가격 히스토리 생성 (yfinance 없을 때)"""
     import numpy as np
     base_price = MOCK_PRICES.get(symbol, 100.0)
-    np.random.seed(hash(symbol) % 1000)
+    # 날짜 기반 시드: 같은 날 같은 종목은 일관성 유지, 다른 날엔 다른 시그널
+    day_seed = (hash(symbol) + datetime.now().toordinal()) % 100000
+    np.random.seed(day_seed)
     returns = np.random.normal(0.0003, 0.015, days)
     prices = [base_price]
     for r in returns:

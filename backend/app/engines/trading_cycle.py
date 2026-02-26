@@ -77,9 +77,10 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
         market_context["current_price"] = current_price
 
         # 7. LLM 판단 (API 키 없으면 규칙 기반 폴백)
+        has_positions = db.query(Position).filter(Position.pm_id == pm.id).count() > 0
         provider = getattr(pm, "llm_provider", "claude")
         if provider == "rule_based":
-            decision = _rule_based_decision(pm.id, signals)
+            decision = _rule_based_decision(pm.id, signals, has_positions=has_positions)
         else:
             try:
                 decision = await llm_engine.make_decision(
@@ -89,10 +90,13 @@ async def run_pm_cycle(pm: PM, db: Session) -> dict:
                     market_context=market_context,
                     llm_provider=provider,
                 )
+                # LLM이 HOLD인데 포지션이 없으면 규칙 기반으로 재판단 (초기 진입 촉진)
+                if decision.get("action") == "HOLD" and not has_positions:
+                    decision = _rule_based_decision(pm.id, signals, has_positions=False)
             except Exception as e:
                 # API 키 없거나 에러 → 규칙 기반 폴백
                 logger.warning("LLM fallback for %s: %s", pm.id, e)
-                decision = _rule_based_decision(pm.id, signals)
+                decision = _rule_based_decision(pm.id, signals, has_positions=has_positions)
 
         action = decision.get("action", "HOLD")
         conviction = decision.get("conviction", 0.0)
@@ -292,7 +296,7 @@ def _update_pm_capital(pm: PM, db: Session) -> float:
     return new_capital
 
 
-def _rule_based_decision(pm_id: str, signals: dict) -> dict:
+def _rule_based_decision(pm_id: str, signals: dict, has_positions: bool = True) -> dict:
     """LLM 없을 때 규칙 기반 의사결정"""
     score = signals.get("composite_score", 0.0)
     rsi = signals.get("rsi", 50.0)
@@ -302,9 +306,13 @@ def _rule_based_decision(pm_id: str, signals: dict) -> dict:
     rsi_boost = 0.15 if rsi < 35 else (-0.15 if rsi > 65 else 0.0)
     adjusted_score = score + rsi_boost
 
-    if adjusted_score > 0.25:
-        conviction = min(0.5 + adjusted_score, 1.0)
-        return {"action": "BUY", "conviction": conviction, "reasoning": f"Buy signal: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.04}
+    # 포지션이 없으면 BUY 임계값을 낮춰서 초기 포지션 진입 촉진
+    buy_threshold = -0.10 if not has_positions else 0.25
+
+    if adjusted_score > buy_threshold:
+        conviction = min(0.5 + abs(adjusted_score), 1.0)
+        tag = "Initial buy" if not has_positions else "Buy signal"
+        return {"action": "BUY", "conviction": max(conviction, 0.5), "reasoning": f"{tag}: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.05}
     elif adjusted_score < -0.25:
         conviction = min(0.5 + abs(adjusted_score), 1.0)
         return {"action": "SELL", "conviction": conviction, "reasoning": f"Sell signal: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.04}
