@@ -306,13 +306,16 @@ def _rule_based_decision(pm_id: str, signals: dict, has_positions: bool = True) 
     rsi_boost = 0.15 if rsi < 35 else (-0.15 if rsi > 65 else 0.0)
     adjusted_score = score + rsi_boost
 
-    # 포지션이 없으면 BUY 임계값을 낮춰서 초기 포지션 진입 촉진
-    buy_threshold = -0.10 if not has_positions else 0.25
+    # 포지션이 없으면: 극단적 하락장이 아닌 한 초기 포지션 진입
+    if not has_positions:
+        if adjusted_score > -0.80:
+            conviction = max(0.5, min(0.5 + abs(adjusted_score), 1.0))
+            return {"action": "BUY", "conviction": conviction, "reasoning": f"Initial position: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.05}
+        return {"action": "HOLD", "conviction": 0.3, "reasoning": f"Extreme bearish, skip entry: composite={score:.2f}", "position_size": 0.0}
 
-    if adjusted_score > buy_threshold:
-        conviction = min(0.5 + abs(adjusted_score), 1.0)
-        tag = "Initial buy" if not has_positions else "Buy signal"
-        return {"action": "BUY", "conviction": max(conviction, 0.5), "reasoning": f"{tag}: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.05}
+    if adjusted_score > 0.25:
+        conviction = min(0.5 + adjusted_score, 1.0)
+        return {"action": "BUY", "conviction": conviction, "reasoning": f"Buy signal: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.04}
     elif adjusted_score < -0.25:
         conviction = min(0.5 + abs(adjusted_score), 1.0)
         return {"action": "SELL", "conviction": conviction, "reasoning": f"Sell signal: composite={score:.2f} rsi={rsi:.1f}", "position_size": 0.04}
